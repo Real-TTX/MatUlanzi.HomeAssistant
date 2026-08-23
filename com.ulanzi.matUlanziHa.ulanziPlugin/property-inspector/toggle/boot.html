@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MatUlanzi.HomeAssistant — Key</title>
+    <style>
+      body {
+        margin: 0;
+        background: #1e1f22;
+        color: #7d8288;
+        font: 12px 'Segoe UI', sans-serif;
+        padding: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <p>…</p>
+    <!--
+      The manifest points here, not at inspector.html.
+      Studio loads a property inspector under a fixed URL and serves it from
+      cache, which means edits to inspector.html or its scripts may never run —
+      that cost hours once. Forwarding with a timestamp gives the real page a URL
+      that cannot be cached; this stub is the only thing that ever is.
+    -->
+    <script>
+      (function () {
+        var query = location.search || '';
+        query += (query ? '&' : '?') + 'cb=' + Date.now();
+        location.replace('inspector.html' + query + location.hash);
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MatUlanzi.HomeAssistant — Designer</title>
+    <link rel="stylesheet" href="../common/pi.css?v=20260823b" />
+    <link rel="stylesheet" href="designer.css?v=20260823b" />
+    <script src="../../libs/js/constants.js"></script>
+    <script src="../../libs/js/eventEmitter.js"></script>
+    <script src="../../libs/js/timers.js"></script>
+    <script src="../../libs/js/utils.js"></script>
+    <script src="../../libs/js/ulanziApi.js"></script>
+    <!--
+      Loaded with a runtime query: Studio serves plugin files from cache, so a
+      fixed `?v=` in the markup would go stale and edits would never run.
+    -->
+    <script>
+      (function () {
+        var version = Date.now();
+        var files = [
+          '../../plugin/src/error-trap.js',
+          '../../plugin/src/ha-client.js',
+          '../../plugin/src/ha-registry.js',
+          '../../plugin/src/ha-pool.js',
+          '../../plugin/src/library.js',
+          '../../plugin/src/ha-domains.js',
+          '../../plugin/src/mdi-icons.js',
+          '../../plugin/src/ha-links.js',
+          '../../plugin/src/key-style.js',
+          '../../plugin/src/key-renderer.js',
+          '../../plugin/src/i18n.js',
+          '../../plugin/src/actions/key-action.js',
+          '../common/entity-picker.js'
+        ];
+        if (location.search.indexOf('preview=1') !== -1) {
+          files.push('../../../tools/fixtures.js', '../../../tools/ud-stub.js');
+        }
+        for (var i = 0; i < files.length; i++) {
+          document.write('<script src="' + files[i] + '?v=' + version + '"><\/script>');
+        }
+        // designer.js runs at the end of the body instead: it connects at once and
+        // its handlers touch the markup, so loading it here would race the parser.
+        window.__assetVersion = version;
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="uspi-wrapper">
+      <header>
+        <h1>MatUlanzi.HomeAssistant</h1>
+        <span data-localize>Designer</span>
+        <span class="spacer"></span>
+        <span id="save-state"></span>
+        <!--
+          Ulanzi Studio expects the popup to close itself; closing it with the
+          window's X can leave the host believing the view is still open, after
+          which openView does nothing. Always offer a real way out.
+        -->
+        <button type="button" class="primary" id="close-window" data-localize>Done</button>
+      </header>
+
+      <main>
+        <aside class="sidebar">
+          <div class="group-title" data-localize>Connections</div>
+          <ul class="list" id="connection-list"></ul>
+          <button type="button" class="wide" id="add-connection" data-localize>
+            + Connection
+          </button>
+
+          <div class="group-title" style="margin-top: 18px" data-localize>Buttons</div>
+
+          <!-- Folders only organise the designer; the deck never sees them. -->
+          <div class="row folder-row">
+            <select id="folder-filter"></select>
+            <button type="button" id="folder-new" title="New folder">+</button>
+            <button type="button" id="folder-rename" title="Rename folder">✎</button>
+            <button type="button" id="folder-delete" title="Delete folder">🗑</button>
+          </div>
+          <input type="text" id="folder-name" class="hidden" />
+
+          <ul class="list" id="button-list"></ul>
+          <button type="button" class="wide" id="add-button" data-localize>+ Button</button>
+        </aside>
+
+        <section class="editor">
+          <div class="empty-state" id="empty-state">
+            <p data-localize>Pick a button on the left, or create a new one.</p>
+            <p data-localize="hint_intro">Buttons live here, not on the keys — a key just points at one.</p>
+          </div>
+
+          <!-- connection editor -->
+          <form id="connection-form" class="hidden" autocomplete="off">
+            <div class="editor-head">
+              <h2 data-localize>Connection</h2>
+              <span class="dot" id="connection-dot"></span>
+              <span id="connection-status" class="hint"></span>
+            </div>
+
+            <fieldset>
+              <legend data-localize>Home Assistant</legend>
+              <div class="field">
+                <label data-localize>Name</label>
+                <input type="text" name="name" placeholder="Zuhause" />
+              </div>
+              <div class="field">
+                <label data-localize>Server URL</label>
+                <input type="text" name="url" placeholder="http://homeassistant.local:8123" />
+              </div>
+              <div class="field">
+                <label data-localize>Access token</label>
+                <input type="password" name="token" />
+                <p class="hint" data-localize>Long-lived access token from your HA profile</p>
+              </div>
+            </fieldset>
+
+            <button type="button" class="danger" id="delete-connection" data-localize>
+              Delete connection
+            </button>
+          </form>
+
+          <!-- button editor -->
+          <form id="button-form" class="hidden" autocomplete="off">
+            <div class="editor-head">
+              <h2 data-localize>Button</h2>
+              <button type="button" id="duplicate-button" data-localize>Duplicate</button>
+              <button type="button" class="danger" id="delete-button" data-localize>Delete</button>
+            </div>
+
+            <fieldset>
+              <legend data-localize>What it controls</legend>
+              <div class="grid-2">
+                <div class="field">
+                  <label data-localize>Name</label>
+                  <input type="text" name="name" placeholder="Deckenlicht Wohnzimmer" />
+                </div>
+                <div class="field">
+                  <label data-localize>Folder</label>
+                  <select name="folder"></select>
+                </div>
+                <div class="field">
+                  <label data-localize>Connection</label>
+                  <select name="connection"></select>
+                </div>
+                <div class="field">
+                  <label data-localize>Type</label>
+                  <select name="type">
+                    <option value="toggle" data-localize>Button (switches)</option>
+                    <option value="info" data-localize>Info (display only)</option>
+                    <option value="open" data-localize>Open (jumps to Home Assistant)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="field hidden" id="interval-field">
+                <label data-localize>Redraw every (seconds)</label>
+                <input type="number" name="refresh_interval" min="0" max="3600" step="5" />
+                <p class="hint" data-localize="hint_interval">
+                  States arrive pushed, so 0 is fine. Only needed for time-based text like {{age}}.
+                </p>
+              </div>
+
+              <!-- Only for the "open" type: what the press should jump to. -->
+              <div class="hidden" id="open-fields">
+                <div class="field">
+                  <label data-localize>Jump to</label>
+                  <select name="open_target">
+                    <option value="entity" data-localize>The entity (info dialog)</option>
+                    <option value="area" data-localize>A room</option>
+                    <option value="dashboard" data-localize>A dashboard</option>
+                    <option value="url" data-localize>A free address</option>
+                  </select>
+                </div>
+                <div class="field hidden" id="open-area-field">
+                  <label data-localize>Room</label>
+                  <select name="open_area"></select>
+                </div>
+                <div class="field hidden" id="open-dashboard-field">
+                  <label data-localize>Dashboard path</label>
+                  <input type="text" name="open_dashboard" placeholder="lovelace/0" />
+                  <p class="hint" data-localize="hint_dashboard">
+                    Everything after the server address, for example lovelace/0 or my-dash/kitchen.
+                  </p>
+                </div>
+                <div class="field hidden" id="open-url-field">
+                  <label data-localize>Address</label>
+                  <input type="text" name="open_url" placeholder="https://…" />
+                </div>
+                <p class="hint" id="open-preview"></p>
+              </div>
+
+              <div class="field">
+                <label data-localize>Entities</label>
+                <div id="entity-chips" class="chips"></div>
+                <div id="picker"></div>
+              </div>
+
+              <div class="field hidden" id="group-rule-field">
+                <label data-localize>When members disagree</label>
+                <select name="group_rule">
+                  <option value="any_on" data-localize>ON wins (one member on = key on)</option>
+                  <option value="all_on" data-localize>OFF wins (all must be on = key on)</option>
+                </select>
+                <p class="hint" data-localize="hint_group">
+                  A press switches the whole group: on when the key shows off, off otherwise.
+                </p>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend data-localize>Look</legend>
+              <div class="field">
+                <label data-localize>Mode</label>
+                <select name="mode">
+                  <option value="classic" data-localize>Zones (colour, icon, text)</option>
+                  <option value="html" data-localize>Own HTML</option>
+                </select>
+              </div>
+
+              <div id="classic-fields">
+                <div class="grid-2">
+                  <div class="field">
+                    <label data-localize>Background off</label>
+                    <div class="with-check">
+                      <input type="color" name="bg_off" value="#2a2d33" />
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label data-localize>Background on</label>
+                    <div class="with-check">
+                      <input type="color" name="bg_on" value="#f4b740" />
+                      <label class="check">
+                        <input type="checkbox" name="bg_on_auto" />
+                        <span data-localize>from entity</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label data-localize>Text off</label>
+                    <div class="with-check">
+                      <input type="color" name="text_off" value="#eceef0" />
+                      <label class="check">
+                        <input type="checkbox" name="text_off_auto" />
+                        <span data-localize>auto</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label data-localize>Text on</label>
+                    <div class="with-check">
+                      <input type="color" name="text_on" value="#14161a" />
+                      <label class="check">
+                        <input type="checkbox" name="text_on_auto" />
+                        <span data-localize>auto</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid-2">
+                  <div class="field">
+                    <label data-localize>Icon off</label>
+                    <div class="icon-field">
+                      <span class="icon-preview" data-icon-preview="icon_off"></span>
+                      <input type="text" name="icon_off" placeholder="—" />
+                      <button type="button" data-icon-browse="icon_off" data-localize>Choose</button>
+                      <button type="button" data-pick-icon="icon_off" data-localize>File…</button>
+                      <button type="button" data-clear-icon="icon_off">✕</button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label data-localize>Icon on</label>
+                    <div class="icon-field">
+                      <span class="icon-preview" data-icon-preview="icon_on"></span>
+                      <input type="text" name="icon_on" placeholder="—" />
+                      <button type="button" data-icon-browse="icon_on" data-localize>Choose</button>
+                      <button type="button" data-pick-icon="icon_on" data-localize>File…</button>
+                      <button type="button" data-clear-icon="icon_on">✕</button>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label data-localize>Icon size</label>
+                    <input type="number" name="icon_size" min="24" max="120" step="4" />
+                  </div>
+                  <div class="field">
+                    <label data-localize>Corner radius</label>
+                    <input type="number" name="radius" min="0" max="98" step="2" />
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label data-localize>Top text</label>
+                  <input type="text" name="top" placeholder="{{area}}" />
+                </div>
+                <div class="grid-2">
+                  <div class="field">
+                    <label data-localize>Center text</label>
+                    <input type="text" name="center" placeholder="{{value}}" />
+                  </div>
+                  <div class="field">
+                    <label data-localize>Bottom text</label>
+                    <input type="text" name="bottom" placeholder="{{name}}" />
+                  </div>
+                </div>
+                <label class="check">
+                  <input type="checkbox" name="show_bar" />
+                  <span data-localize>Show fill bar (brightness, position, volume)</span>
+                </label>
+              </div>
+
+              <div id="html-fields" class="hidden">
+                <div class="field">
+                  <label data-localize>HTML template</label>
+                  <textarea name="html" spellcheck="false"></textarea>
+                  <p class="hint" data-localize="hint_html">
+                    Placeholders work here too. No JavaScript runs, and images or fonts must be data URLs.
+                  </p>
+                </div>
+                <button type="button" id="html-starter" data-localize>Insert example</button>
+              </div>
+            </fieldset>
+          </form>
+        </section>
+
+        <aside class="preview">
+          <div class="group-title" data-localize>Preview</div>
+          <img class="preview-key" id="preview" alt="" />
+          <div class="preview-info" id="preview-info"></div>
+          <div class="placeholders">
+            <div data-localize>Placeholders</div>
+            <code>{{name}}</code> <code>{{area}}</code> <code>{{floor}}</code>
+            <code>{{device}}</code> <code>{{value}}</code> <code>{{state}}</code>
+            <code>{{brightness}}</code> <code>{{unit}}</code> <code>{{entity_id}}</code>
+            <code>{{domain}}</code> <code>{{connection}}</code> <code>{{age}}</code>
+            <code>{{on_count}}</code> <code>{{off_count}}</code> <code>{{total}}</code>
+            <code>{{attr:temperature}}</code>
+            <div style="margin-top: 7px" data-localize>Filters</div>
+            <code>|upper</code> <code>|lower</code> <code>|round</code> <code>|title</code>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <!-- icon browser -->
+    <div class="overlay hidden" id="icon-browser">
+      <div class="overlay-box">
+        <div class="overlay-head">
+          <strong data-localize>Choose icon</strong>
+          <input
+            type="search"
+            id="icon-search"
+            placeholder="Licht, Rollo, Thermostat…"
+            data-localize-placeholder="Search icons"
+          />
+          <span id="icon-count" class="hint"></span>
+          <span class="spacer"></span>
+          <button type="button" id="icon-browser-close">✕</button>
+        </div>
+        <div class="icon-grid" id="icon-grid"></div>
+      </div>
+    </div>
+
+    <!-- Last, so the markup above is guaranteed to exist. -->
+    <script>
+      document.write(
+        '<script src="designer.js?v=' + (window.__assetVersion || Date.now()) + '"><\/script>'
+      );
+    </script>
+  </body>
+</html>

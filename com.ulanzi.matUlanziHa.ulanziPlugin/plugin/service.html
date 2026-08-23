@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Home Assistant — main service</title>
+    <!-- UlanziDeck SDK (classic scripts: file:// blocks ES modules) -->
+    <script src="../libs/js/constants.js"></script>
+    <script src="../libs/js/eventEmitter.js"></script>
+    <script src="../libs/js/timers.js"></script>
+    <script src="../libs/js/utils.js"></script>
+    <script src="../libs/js/ulanziApi.js"></script>
+  </head>
+  <body style="background:#1e1f22;color:#9aa0a6;font:13px 'Segoe UI',sans-serif">
+    <p>Home Assistant main service — no UI, see the console.</p>
+
+    <!--
+      Ulanzi Studio serves plugin files from cache, and the host loads this page
+      under a fixed URL — so a `?v=` written into the markup would be stale as
+      well. Building the query at runtime is the only way to guarantee the code
+      that runs is the code on disk. document.write keeps load order.
+    -->
+    <script>
+      (function () {
+        var version = Date.now();
+        var files = [
+          'src/error-trap.js',
+          'src/ha-client.js',
+          'src/ha-registry.js',
+          'src/ha-pool.js',
+          'src/library.js',
+          'src/ha-domains.js',
+          'src/mdi-icons.js',
+          'src/ha-links.js',
+          'src/key-style.js',
+          'src/key-renderer.js',
+          'src/i18n.js',
+          'src/designer-window.js',
+          'src/actions/key-action.js'
+        ];
+        // Dev preview only: simulates the host bridge and Home Assistant.
+        if (location.search.indexOf('preview=1') !== -1) {
+          files.push('../../tools/fixtures.js', '../../tools/ud-stub.js');
+        }
+        files.push('src/main.js');
+
+        for (var i = 0; i < files.length; i++) {
+          document.write('<script src="' + files[i] + '?v=' + version + '"><\/script>');
+        }
+      })();
+    </script>
+  </body>
+</html>

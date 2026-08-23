@@ -1,0 +1,8 @@
+# Ulanzi Studio / editor noise
+.DS_Store
+Thumbs.db
+*.log
+
+# local experiments
+/tools/local-*
+node_modules/

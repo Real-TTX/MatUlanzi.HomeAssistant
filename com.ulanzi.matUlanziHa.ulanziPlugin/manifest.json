@@ -1,0 +1,36 @@
+{
+  "Author": "Matthias",
+  "Name": "MatUlanzi.HomeAssistant",
+  "Description": "Control Home Assistant from your UlanziDeck: live entity states pushed over the WebSocket API and a room-aware entity picker.",
+  "Icon": "resources/icon.svg",
+  "Version": "0.1.0",
+  "Category": "MatUlanzi",
+  "CategoryIcon": "resources/category.svg",
+  "CodePath": "plugin/service.html",
+  "Type": "JavaScript",
+  "UUID": "com.ulanzi.ulanzistudio.matUlanziHa",
+  "Actions": [
+    {
+      "Name": "Toggle",
+      "Icon": "resources/actions/toggle.svg",
+      "PropertyInspectorPath": "property-inspector/toggle/boot.html",
+      "state": 0,
+      "States": [
+        { "Name": "Default", "Image": "resources/actions/toggle.svg" }
+      ],
+      "Tooltip": "Switch a light, socket, scene or any other entity and show its state",
+      "UUID": "com.ulanzi.ulanzistudio.matUlanziHa.toggle",
+      "SupportedInMultiActions": true,
+      "DisableAutomaticStates": true,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    }
+  ],
+  "OS": [
+    { "Platform": "windows", "MinimumVersion": "10" },
+    { "Platform": "mac", "MinimumVersion": "10.11" }
+  ],
+  "Software": {
+    "MinVersion": "3.0.11"
+  }
+}

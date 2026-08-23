@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MatUlanzi.HomeAssistant self-test</title>
+    <script src="fixtures.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-client.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-registry.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-domains.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/mdi-icons.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-links.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/key-style.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/library.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/key-renderer.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/i18n.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-pool.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/actions/key-action.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/designer-window.js"></script>
+    <style>
+      body {
+        background: #1e1f22;
+        color: #eceef0;
+        font: 14px 'Segoe UI', sans-serif;
+        padding: 18px;
+      }
+      h2 { font-size: 15px; margin: 22px 0 8px; color: #9aa0a6; }
+      .pass { color: #3ddc97; }
+      .fail { color: #ff5c5c; font-weight: 600; }
+      pre { background: #26282d; padding: 10px; border-radius: 6px; overflow-x: auto; }
+      .keys { display: flex; gap: 12px; flex-wrap: wrap; }
+      .keys figure { margin: 0; text-align: center; }
+      .keys img { width: 98px; height: 98px; border-radius: 12px; display: block; }
+      .keys figcaption { font-size: 11px; color: #868b91; margin-top: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1 style="font-size: 17px">MatUlanzi.HomeAssistant self-test</h1>
+    <div id="results"></div>
+    <h2>Gerenderte Tasten</h2>
+    <div class="keys" id="keys"></div>
+
+    <script>
+      // --- fixtures: three ceiling lights all called "Deckenlicht" ----------
+      const FIXTURE_STATES = HA_FIXTURES.states;
+
+      const FIXTURE_REGISTRY = HA_FIXTURES.registry;
+
+      // Stand-in for HaClient: only what HaRegistry actually touches.
+      const fakeClient = {
+        states: new Map(FIXTURE_STATES.map((s) => [s.entity_id, s])),
+        getState(id) {
+          return this.states.get(id) || null;
+        },
+        command(msg) {
+          const data = FIXTURE_REGISTRY[msg.type];
+          return data ? Promise.resolve(data) : Promise.reject(new Error('unsupported: ' + msg.type));
+        },
+        subscribeEvents() {
+          return Promise.resolve(() => {});
+        }
+      };
+
+      // --- assertions -------------------------------------------------------
+      const out = document.getElementById('results');
+      let failures = 0;
+
+      function check(label, condition, detail) {
+        const line = document.createElement('div');
+        line.className = condition ? 'pass' : 'fail';
+        line.textContent = (condition ? '✓ ' : '✗ ') + label + (detail ? '  →  ' + detail : '');
+        out.appendChild(line);
+        if (!condition) failures++;
+        return condition;
+      }
+
+      function section(title) {
+        const h = document.createElement('h2');
+        h.textContent = title;
+        out.appendChild(h);
+      }
+
+      (async function run() {
+        const registry = new HaRegistry(fakeClient, { log: console.log });
+        await registry.load();
+
+        section('Registry-Join');
+        const wz = registry.get('light.decke_wz');
+        check('Raum kommt über das Gerät', wz && wz.areaName === 'Wohnzimmer', wz && wz.areaName);
+        check('Etage kommt über den Raum', wz && wz.floorName === 'Erdgeschoss', wz && wz.floorName);
+        check(
+          'name_by_user schlägt name',
+          registry.get('light.decke_kueche').deviceName === 'Küchenlampe',
+          registry.get('light.decke_kueche').deviceName
+        );
+        check('Raum direkt an der Entity', registry.get('light.decke_bad').areaName === 'Badezimmer');
+        check('Entity ohne Raum bleibt leer', registry.get('lock.haustuer').areaName === '');
+        const areaLabels = registry.areas().map((a) => (a.floor ? a.floor + ' › ' : '') + a.name);
+        check(
+          'Räume nach Etage, dann Name sortiert',
+          areaLabels.join(' | ') ===
+            'Erdgeschoss › Küche | Erdgeschoss › Wohnzimmer | Obergeschoss › Badezimmer | Flur',
+          areaLabels.join(' | ')
+        );
+        check('Räume ohne Etage stehen hinten', registry.areas()[3].name === 'Flur');
+
+        section('Das eigentliche Problem: 3x "Deckenlicht"');
+        const all = registry.search('deckenlicht');
+        check('alle drei gefunden', all.length === 3, all.length + ' Treffer');
+        check(
+          'jeder Treffer hat einen Raum',
+          all.every((r) => r.areaName),
+          all.map((r) => r.areaName + '/' + r.entityId).join(' | ')
+        );
+
+        const kitchen = registry.search('deckenlicht küche');
+        check('Raum als Suchwort filtert', kitchen.length === 1 && kitchen[0].entityId === 'light.decke_kueche', kitchen.map((r) => r.entityId).join(','));
+        check(
+          'Umlaut-Fallback: "kueche" findet "Küche"',
+          registry.search('kueche licht').some((r) => r.entityId === 'light.decke_kueche')
+        );
+        check(
+          'Gerätename ist suchbar',
+          registry.search('shelly').length === 0 && registry.search('hue').some((r) => r.entityId === 'light.decke_wz'),
+          'hue → ' + registry.search('hue').map((r) => r.entityId).join(',')
+        );
+        check(
+          'Etage ist suchbar',
+          registry.search('obergeschoss').some((r) => r.entityId === 'light.decke_bad')
+        );
+        check(
+          'Domain-Synonym "licht" filtert auf light',
+          registry.search('licht wohnzimmer').every((r) => r.domain === 'light'),
+          registry.search('licht wohnzimmer').map((r) => r.entityId).join(',')
+        );
+        check(
+          'Diagnose-Entities sind ausgeblendet',
+          !registry.search('akku').length && registry.search('akku', { includeHidden: true }).length === 1
+        );
+        check('unpassende Suche liefert nichts', registry.search('xyzq').length === 0);
+        check(
+          'Domain-Filter greift',
+          registry.search('', { domains: ['cover'] }).map((r) => r.entityId).join(',') === 'cover.wz_rollo'
+        );
+        check(
+          'Raumfilter greift',
+          registry.search('', { areaId: 'bad' }).map((r) => r.entityId).join(',') === 'light.decke_bad'
+        );
+
+        section('Domain-Semantik');
+        const D = HaDomains;
+        const i18n = new I18n('de_DE');
+        const t = (k) => i18n.t(k);
+        check('Licht an + Helligkeit → Prozent', D.valueText('light.decke_wz', fakeClient.getState('light.decke_wz'), t) === '71%', D.valueText('light.decke_wz', fakeClient.getState('light.decke_wz'), t));
+        check('Licht aus → "Aus"', D.valueText('light.decke_kueche', fakeClient.getState('light.decke_kueche'), t) === 'Aus');
+        check('Sensor mit Einheit', D.valueText('sensor.aussen_temp', fakeClient.getState('sensor.aussen_temp'), t) === '21.4°C', D.valueText('sensor.aussen_temp', fakeClient.getState('sensor.aussen_temp'), t));
+        check('Rollo → Position', D.valueText('cover.wz_rollo', fakeClient.getState('cover.wz_rollo'), t) === '65%');
+        check('Rollo offen gilt als aktiv', D.isActive('cover.wz_rollo', fakeClient.getState('cover.wz_rollo')) === true);
+        check('verriegeltes Schloss gilt nicht als aktiv', D.isActive('lock.haustuer', fakeClient.getState('lock.haustuer')) === false);
+        check('unavailable erkannt', D.isUnavailable(fakeClient.getState('switch.kaffee')) === true);
+        check('Licht nutzt eigene Farbe', D.accentColor('light.decke_wz', fakeClient.getState('light.decke_wz')) === 'rgb(255,196,120)');
+        check('Schloss-Druck entriegelt', D.pressService('lock.haustuer', fakeClient.getState('lock.haustuer')).service === 'unlock');
+        check('Szene startet', D.pressService('scene.abend', null).service === 'turn_on');
+        check('Fallback ist homeassistant.toggle', D.pressService('input_boolean.x', null).domain === 'homeassistant');
+        check('Helligkeitsbalken 0..1', Math.abs(D.progressOf('light.decke_wz', fakeClient.getState('light.decke_wz')) - 180 / 255) < 0.001);
+
+        section('Bibliothek: Verbindungen & Buttons');
+        const emptyLib = new Library({});
+        check('leere Bibliothek', !emptyLib.connections.length && !emptyLib.buttons.length);
+
+        const migrated = Library.parse({ ha_url: 'http://ha.local:8123', ha_token: 'tok' });
+        check(
+          'alte Flach-Einstellungen werden migriert',
+          migrated.connections.length === 1 && migrated.connections[0].url === 'http://ha.local:8123',
+          JSON.stringify(migrated.connections[0] || {})
+        );
+
+        const lib = new Library({});
+        const conn = lib.addConnection({ name: 'Zuhause', url: 'http://ha.local:8123', token: 'tok' });
+        const other = lib.addConnection({ name: 'Büro', url: 'http://office:8123', token: 'tok2' });
+        const btn = lib.addButton({ name: 'Deckenlicht', entity_id: 'light.decke_wz' });
+        check('neuer Button erbt die erste Verbindung', btn.connection === conn.id);
+        check('Verbindung per id gefunden', lib.connection(other.id).name === 'Büro');
+        check('ohne id kommt die erste Verbindung', lib.connection('').id === conn.id);
+
+        const resolved = lib.resolveKey({ button: btn.id });
+        check('Taste löst auf Button auf', resolved && resolved.entityId === 'light.decke_wz');
+        check('Stil ist vollständig', resolved.style.center === '{{value}}');
+        check('Verbindung wird mitgegeben', resolved.connection === conn.id);
+
+        lib.updateButton(btn.id, { style: { top: '', bg_off: '#123456' } });
+        const styled = lib.resolveKey({ button: btn.id });
+        check('leere Textzone bleibt leer', styled.style.top === '', JSON.stringify(styled.style.top));
+        check('eigene Farbe bleibt', styled.style.bg_off === '#123456');
+
+        const overridden = lib.resolveKey({ button: btn.id, label: 'Sofa', bg_off: '#ff0000' });
+        check('Taste überschreibt Beschriftung', overridden.label === 'Sofa');
+        check('Taste überschreibt Farbe', overridden.style.bg_off === '#ff0000');
+        check(
+          'leerer Override erbt',
+          lib.resolveKey({ button: btn.id, bg_off: '' }).style.bg_off === '#123456'
+        );
+
+        check('unbekannte Referenz ergibt null', lib.resolveKey({ button: 'gibtsnicht' }) === null);
+        check('leere Einstellungen ergeben null', lib.resolveKey({}) === null);
+        check(
+          'Altbestand ohne Button funktioniert weiter',
+          (lib.resolveKey({ entity_id: 'light.x' }) || {}).source === 'inline'
+        );
+
+        const copy = lib.duplicateButton(btn.id);
+        check('Duplikat hat eigene id', copy.id !== btn.id && lib.buttons.length === 2);
+        check('Duplikat behält die Entity', copy.entity_id === 'light.decke_wz');
+
+        lib.removeConnection(conn.id);
+        check(
+          'gelöschte Verbindung wird von Buttons gelöst',
+          lib.button(btn.id).connection === '' && lib.connections.length === 1
+        );
+        check(
+          'Buttons fallen auf die verbleibende Verbindung zurück',
+          lib.resolveKey({ button: btn.id }).connection === ''
+        );
+
+        section('Ordner');
+        const fLib = new Library({});
+        fLib.addConnection({ name: 'HA', url: 'http://ha', token: 'x' });
+        const folderWz = fLib.addFolder({ name: 'Wohnzimmer' });
+        const folderBad = fLib.addFolder({ name: 'Bad' });
+        const inWz = fLib.addButton({ name: 'Lampe', folder: folderWz.id, entities: ['light.a'] });
+        fLib.addButton({ name: 'Spiegel', folder: folderBad.id, entities: ['light.b'] });
+        const loose = fLib.addButton({ name: 'Ohne Ordner', entities: ['light.c'] });
+
+        const tree = fLib.tree();
+        check(
+          'Ordner alphabetisch, ordnerlose zuletzt',
+          tree.map((g) => (g.folder ? g.folder.name : 'ohne')).join(',') === 'Bad,Wohnzimmer,ohne',
+          tree.map((g) => (g.folder ? g.folder.name : 'ohne')).join(',')
+        );
+        check('Button liegt im richtigen Ordner', tree[1].buttons[0].id === inWz.id);
+        check('ordnerloser Button in der letzten Gruppe', tree[2].buttons[0].id === loose.id);
+
+        fLib.removeFolder(folderWz.id);
+        check('gelöschter Ordner gibt Buttons frei', fLib.button(inWz.id).folder === '');
+        check('Button überlebt das Löschen des Ordners', fLib.buttons.length === 3);
+
+        section('Gruppen: Vorrang EIN / AUS');
+        // Eigene Renderer-Instanz: die des Renderer-Abschnitts existiert hier noch nicht.
+        const groupRenderer = new KeyRenderer();
+        const gLib = new Library({});
+        const gConn = gLib.addConnection({ name: 'HA', url: 'http://ha', token: 'x' });
+        const groupButton = gLib.addButton({
+          name: 'Alle Lichter',
+          entities: ['light.decke_wz', 'light.decke_kueche', 'light.decke_bad'],
+          group_rule: 'any_on'
+        });
+        check('mehrere Entities werden übernommen', Library.entitiesOf(groupButton).length === 3);
+        check(
+          'entity_id-Altbestand zählt weiter',
+          Library.entitiesOf({ entity_id: 'light.x' })[0] === 'light.x'
+        );
+
+        // Fixtures: decke_wz an, decke_bad an, decke_kueche aus
+        const fakePoolEntry = { id: gConn.id, client: fakeClient, registry: registry, name: 'HA' };
+        const groupAction = new KeyAction({
+          context: 'test',
+          ud: { setBaseDataIcon() {}, toast() {}, showAlert() {}, logMessage() {} },
+          pool: { get: () => fakePoolEntry, entries: () => [fakePoolEntry] },
+          library: () => gLib,
+          renderer: groupRenderer,
+          i18n: i18n,
+          log: () => {}
+        });
+        groupAction.setSettings({ button: groupButton.id });
+
+        const anyOn = groupAction.aggregate(gLib.resolveKey({ button: groupButton.id }), fakePoolEntry);
+        check('2 von 3 an gezählt', anyOn.onCount === 2 && anyOn.total === 3, anyOn.onCount + '/' + anyOn.total);
+        check('EIN hat Vorrang → Taste an', anyOn.active === true);
+
+        gLib.updateButton(groupButton.id, { group_rule: 'all_on' });
+        const allOn = groupAction.aggregate(gLib.resolveKey({ button: groupButton.id }), fakePoolEntry);
+        check('AUS hat Vorrang → Taste aus', allOn.active === false);
+        check('Zähler bleibt gleich', allOn.onCount === 2 && allOn.offCount === 1);
+
+        gLib.updateButton(groupButton.id, {
+          group_rule: 'all_on',
+          entities: ['light.decke_wz', 'light.decke_bad']
+        });
+        const bothOn = groupAction.aggregate(gLib.resolveKey({ button: groupButton.id }), fakePoolEntry);
+        check('alle an → auch bei AUS-Vorrang an', bothOn.active === true);
+
+        gLib.updateButton(groupButton.id, { entities: ['switch.kaffee'] });
+        const dead = groupAction.aggregate(gLib.resolveKey({ button: groupButton.id }), fakePoolEntry);
+        check('nur unavailable → Gruppe unavailable', dead.unavailable === true && dead.available === 0);
+
+        section('Typen & Icons');
+        const iLib = new Library({});
+        iLib.addConnection({ name: 'HA', url: 'http://ha', token: 'x' });
+        const infoButton = iLib.addButton({
+          name: 'Temperatur',
+          type: 'info',
+          entities: ['sensor.aussen_temp'],
+          refresh_interval: 60
+        });
+        const infoDef = iLib.resolveKey({ button: infoButton.id });
+        check('Info-Typ kommt durch', infoDef.type === 'info');
+        check('Intervall kommt durch', infoDef.refreshInterval === 60);
+        check('Default-Typ ist Button', iLib.resolveKey({ button: iLib.addButton({}).id }).type === 'toggle');
+
+        check('MDI-Set geladen', KeyStyle.mdiNames().length > 60, KeyStyle.mdiNames().length + ' Icons');
+        check('mdi: wird erkannt', KeyStyle.isMdi('mdi:lightbulb') && !KeyStyle.isMdi('C:/x.png'));
+        const mdiUrl = KeyStyle.mdiDataUrl('lightbulb', '#ff0000');
+        check(
+          'mdi-Icon wird in Farbe erzeugt',
+          mdiUrl.indexOf('data:image/svg+xml') === 0 && decodeURIComponent(mdiUrl).indexOf('#ff0000') > -1
+        );
+        check('unbekanntes Icon liefert nichts', KeyStyle.mdiDataUrl('gibtsnicht', '#fff') === '');
+        check(
+          'Windows-Pfad wird zu file://',
+          KeyStyle.toImageUrl('C:\\icons\\a.png') === 'file:///C:/icons/a.png',
+          KeyStyle.toImageUrl('C:\\icons\\a.png')
+        );
+
+        const withIcon = await groupRenderer.render(
+          { ctx: { name: 'Licht', value: 'An' }, active: true, accent: '#f4b740' },
+          { icon_on: 'mdi:ceiling-light', icon_size: 60 }
+        );
+        check('Taste mit mdi-Icon rendert', /^data:image\/png;base64,/.test(withIcon) && withIcon.length > 500);
+
+        check('Alter: gerade eben', keyActionFormatAge(new Date().toISOString()).indexOf('s') > -1);
+        check(
+          'Alter: Minuten',
+          keyActionFormatAge(new Date(Date.now() - 5 * 60000).toISOString()) === '5 min',
+          keyActionFormatAge(new Date(Date.now() - 5 * 60000).toISOString())
+        );
+        check('Alter: leer bei Unsinn', keyActionFormatAge('quatsch') === '');
+
+        const roundTrip = Library.parse(JSON.parse(JSON.stringify(lib.toJSON())));
+        check(
+          'JSON-Roundtrip erhält alles',
+          roundTrip.buttons.length === lib.buttons.length &&
+            roundTrip.connections.length === lib.connections.length &&
+            roundTrip.button(btn.id).entity_id === 'light.decke_wz'
+        );
+
+        section('Stil & Text-Templates');
+        const KS = KeyStyle;
+        const tplCtx = {
+          name: 'Deckenlicht',
+          area: 'Wohnzimmer',
+          value: '71%',
+          state: 'on',
+          attributes: { temperature: 21.42 }
+        };
+        check('Platzhalter', KS.resolveTemplate('{{area}}: {{name}}', tplCtx) === 'Wohnzimmer: Deckenlicht');
+        check('Filter |upper', KS.resolveTemplate('{{name|upper}}', tplCtx) === 'DECKENLICHT');
+        check('Attribut + |round', KS.resolveTemplate('{{attr:temperature|round}}°', tplCtx) === '21°', KS.resolveTemplate('{{attr:temperature|round}}°', tplCtx));
+        check('unbekannter Platzhalter wird leer', KS.resolveTemplate('a{{quatsch}}b', tplCtx) === 'ab');
+        check('Taste überschreibt Preset', KS.mergeStyle({ bg_off: '#111111' }, { bg_off: '#222222' }).bg_off === '#222222');
+        check('leeres Feld erbt vom Preset', KS.mergeStyle({ bg_off: '#111111' }, { bg_off: '' }).bg_off === '#111111');
+        check('Default greift', KS.mergeStyle(null, {}).center === '{{value}}');
+        check('Fremdfelder werden ignoriert', KS.mergeStyle(null, { entity_id: 'light.x' }).entity_id === undefined);
+
+        section('Renderer');
+        const renderer = new KeyRenderer();
+
+        // Pixelprobe: greift eine konfigurierte Hintergrundfarbe wirklich?
+        await renderer.render({ ctx: { name: 'X', value: 'Y' } }, { bg_off: '#ff0000' });
+        const probe = renderer.ctx.getImageData(98, 62, 1, 1).data;
+        check('bg_off wird angewendet', probe[0] > 200 && probe[1] < 60, 'rgb(' + probe[0] + ',' + probe[1] + ',' + probe[2] + ')');
+
+        const bulbIcon =
+          'data:image/svg+xml;charset=utf-8,' +
+          encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">' +
+              '<path fill="#14161a" d="M9 21h6v-1H9v1zm3-19a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z"/></svg>'
+          );
+
+        const htmlTemplate =
+          '<div style="width:100%;height:100%;box-sizing:border-box;display:flex;flex-direction:column;' +
+          'justify-content:space-between;padding:14px;border-radius:26px;color:#fff;' +
+          "font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#f4b740,#e2622b)\">" +
+          '<div style="font-size:19px;font-weight:700;opacity:.75">{{area}}</div>' +
+          '<div style="font-size:44px;font-weight:700;text-align:center">{{value}}</div>' +
+          '<div style="font-size:21px;font-weight:600;text-align:center">{{name}}</div></div>';
+
+        const samples = [
+          {
+            label: 'Licht an',
+            view: { ctx: { area: 'Wohnzimmer', name: 'Deckenlicht', value: '71%' }, active: true, accent: 'rgb(255,196,120)', progress: 180 / 255 }
+          },
+          { label: 'Licht aus', view: { ctx: { area: 'Küche', name: 'Deckenlicht', value: 'Aus' } } },
+          {
+            label: 'langer Name',
+            view: { ctx: { area: 'Wohnzimmer', name: 'Stehlampe hinter dem Sofa links', value: 'An' }, active: true, accent: '#f4b740' }
+          },
+          { label: 'nicht verfügbar', view: { ctx: { area: 'Küche', name: 'Kaffeemaschine', value: '--' }, unavailable: true } },
+          { label: 'busy', view: { ctx: { area: 'Wohnzimmer', name: 'Rollo', value: '65%' }, active: true, accent: '#6aa9ff', progress: 0.65, busy: true } },
+          {
+            label: 'eigenes Template',
+            view: { ctx: { area: 'Wohnzimmer', name: 'Außentemperatur', attributes: { temperature: 21.42 } } },
+            style: { top: '{{area|upper}}', center: '{{attr:temperature|round}}°', bottom: '{{name}}' }
+          },
+          {
+            label: 'eigene Farben',
+            view: { ctx: { area: 'Bad', name: 'Handtuchheizung', value: 'Aus' } },
+            style: { bg_off: '#1b2a4a', text_off: '#8fd0ff' }
+          },
+          {
+            label: 'Icon an/aus',
+            view: { ctx: { area: 'Küche', name: 'Deckenlicht', value: '100%' }, active: true, accent: '#f4b740' },
+            style: { icon_on: bulbIcon, icon_size: 60 }
+          },
+          {
+            label: 'HTML-Modus',
+            view: { ctx: { area: 'Wohnzimmer', name: 'Deckenlicht', value: '71%' } },
+            style: { mode: 'html', html: htmlTemplate }
+          }
+        ];
+
+        const keys = document.getElementById('keys');
+        let rendered = 0;
+        for (const sample of samples) {
+          const dataUrl = await renderer.render(sample.view, sample.style);
+          if (/^data:image\/png;base64,/.test(dataUrl) && dataUrl.length > 500) rendered++;
+          const figure = document.createElement('figure');
+          const img = document.createElement('img');
+          img.src = dataUrl;
+          const caption = document.createElement('figcaption');
+          caption.textContent = sample.label;
+          figure.appendChild(img);
+          figure.appendChild(caption);
+          keys.appendChild(figure);
+        }
+        check('alle Tasten als PNG gerendert', rendered === samples.length, rendered + '/' + samples.length);
+
+        // Ein kaputtes HTML-Template darf die Taste nicht schwarz lassen.
+        const broken = await renderer.render(
+          { ctx: { name: 'Fallback', value: '!' } },
+          { mode: 'html', html: '<div style="' }
+        );
+        check('kaputtes HTML fällt auf Classic zurück', /^data:image\/png;base64,/.test(broken) && broken.length > 500);
+
+        section('Sonstiges');
+        check('WS-URL aus http', haToWebSocketUrl('http://ha.local:8123') === 'ws://ha.local:8123/api/websocket', haToWebSocketUrl('http://ha.local:8123'));
+        check('WS-URL aus https', haToWebSocketUrl('https://ha.example.de/') === 'wss://ha.example.de/api/websocket', haToWebSocketUrl('https://ha.example.de/'));
+        check('WS-URL aus nacktem Host', haToWebSocketUrl('ha.local:8123') === 'ws://ha.local:8123/api/websocket');
+        check('i18n de', new I18n('de_DE').t('On') === 'An');
+        check('i18n Fallback en', new I18n('fr_FR').t('On') === 'On');
+
+        section('Öffnen: Adressen nach Home Assistant');
+        {
+          const base = 'https://ha.example.de';
+          const build = HaLinks.build;
+
+          check(
+            'Entität öffnet den Info-Dialog',
+            build(base, { target: 'entity', entityId: 'light.decke_wz' }) ===
+              'https://ha.example.de/?more-info-entity-id=light.decke_wz',
+            build(base, { target: 'entity', entityId: 'light.decke_wz' })
+          );
+          check(
+            'Entitäts-Id wird kodiert',
+            build(base, { target: 'entity', entityId: 'sensor.a b' }).indexOf('sensor.a%20b') !== -1
+          );
+          check('Entität ohne Id ergibt nichts', build(base, { target: 'entity', entityId: '' }) === '');
+
+          check(
+            'Raum öffnet die Raumseite',
+            build(base, { target: 'area', area: 'wohnzimmer' }) ===
+              'https://ha.example.de/config/areas/area/wohnzimmer',
+            build(base, { target: 'area', area: 'wohnzimmer' })
+          );
+          check('Raum ohne Auswahl ergibt nichts', build(base, { target: 'area', area: '' }) === '');
+
+          check(
+            'Dashboard mit Pfad',
+            build(base, { target: 'dashboard', dashboard: 'mein-dash/kueche' }) ===
+              'https://ha.example.de/mein-dash/kueche'
+          );
+          check(
+            'führender Schrägstrich wird nicht verdoppelt',
+            build(base, { target: 'dashboard', dashboard: '/lovelace/2' }) === 'https://ha.example.de/lovelace/2',
+            build(base, { target: 'dashboard', dashboard: '/lovelace/2' })
+          );
+          check(
+            'Dashboard ohne Angabe nimmt die Standardseite',
+            build(base, { target: 'dashboard', dashboard: '' }) === 'https://ha.example.de/' + HaLinks.DEFAULT_DASHBOARD
+          );
+          check(
+            'Schrägstrich am Serverende stört nicht',
+            build('https://ha.example.de/', { target: 'dashboard', dashboard: 'x' }) === 'https://ha.example.de/x'
+          );
+
+          check(
+            'freie Adresse bleibt unverändert',
+            build(base, { target: 'url', url: 'http://etwas.local:8080/a?b=c' }) === 'http://etwas.local:8080/a?b=c'
+          );
+          check(
+            'nackter Host bekommt https (sonst öffnet der Host nichts)',
+            build(base, { target: 'url', url: 'beispiel.de/pfad' }) === 'https://beispiel.de/pfad'
+          );
+          check('freie Adresse ohne Eingabe ergibt nichts', build(base, { target: 'url', url: '' }) === '');
+
+          check('ohne Serveradresse gibt es keine Adresse', build('', { target: 'entity', entityId: 'light.x' }) === '');
+          check('unbekanntes Ziel wird als Entität behandelt', build(base, { entityId: 'light.x' }).indexOf('more-info') !== -1);
+
+          check(
+            'Beschreibung zeigt den Raumnamen',
+            HaLinks.describe({ target: 'area', area: 'wz' }, { area: 'Wohnzimmer' }) === 'Wohnzimmer'
+          );
+        }
+
+        section('Schreibschutz der Bibliothek');
+        {
+          const voll = { buttons: [{ id: 1 }], connections: [{ id: 2 }] };
+          const leer = { buttons: [], connections: [] };
+          check(
+            'leer darf gefuellt NICHT ersetzen (so ging eine echte Bibliothek verloren)',
+            mayReplaceLibrary(leer, voll) === false
+          );
+          check('gefuellt darf ersetzen', mayReplaceLibrary(voll, voll) === true);
+          check('leer ueber leer ist erlaubt', mayReplaceLibrary(leer, leer) === true);
+          check('erster Schreibvorgang ohne Vorwissen ist erlaubt', mayReplaceLibrary(voll, null) === true);
+          check('leer ohne Vorwissen ist erlaubt', mayReplaceLibrary(leer, null) === true);
+          check('nur eine Verbindung zaehlt schon als Inhalt', mayReplaceLibrary(leer, { buttons: [], connections: [{}] }) === false);
+        }
+
+        section('Designer-Fenster (Host-Eigenheiten)');
+        {
+          // Nachgebaute Host-Umgebung: alles, was das Modul anfasst, ist injizierbar.
+          function harness(opts) {
+            const sent = [];
+            const location = {
+              href: 'file:///C:/Plugins/com.ulanzi.matUlanziHa.ulanziPlugin/plugin/service.html?address=127.0.0.1&port=3906'
+            };
+            const view = new DesignerWindow(Object.assign({
+              ud: {
+                uuid: 'com.ulanzi.ulanzistudio.matUlanziHa',
+                address: '127.0.0.1',
+                port: 3906,
+                language: 'de-DE',
+                openView: (url, w, h, x, y, param) => sent.push({ url, w, h, param }),
+                sendToPropertyInspector: (payload, context) => sent.push({ tell: payload, context })
+              },
+              location: location,
+              now: () => 1000,
+              // Genau wie der Hauptdienst es konfiguriert, siehe main.js.
+              senderUuid: 'com.ulanzi.ulanzistudio.matUlanziHa.designer'
+            }, opts || {}));
+            return { view, sent };
+          }
+
+          const first = harness();
+          check(
+            'Pfad ist absolut (sonst liest der Host den ersten Teil als Servername)',
+            first.view.viewPath() === '/C:/Plugins/com.ulanzi.matUlanziHa.ulanziPlugin/property-inspector/designer/designer.html',
+            first.view.viewPath()
+          );
+
+          check('Oeffnen meldet opened', first.view.open('btn-1') === 'opened');
+          check('openView wurde gerufen', first.sent.length === 1 && first.sent[0].url.indexOf('/C:/') === 0);
+          check(
+            'eigene UUID, KEINE Action-UUID — sonst schneidet der Host beim Schliessen den Inspector ab',
+            first.sent[0].param.uuid === 'com.ulanzi.ulanzistudio.matUlanziHa.designer',
+            first.sent[0].param.uuid
+          );
+          check('UUID ist kein Praefix einer Action', first.sent[0].param.uuid.indexOf('.toggle') === -1);
+          check('Button-Id reist mit', first.sent[0].param.button === 'btn-1');
+          check('eigene Identitaet per nonce', !!first.sent[0].param.nonce);
+          check('Fenstergroesse mitgegeben', first.sent[0].w === 1280 && first.sent[0].h === 860);
+
+          // Der Slot ist wiederverwendbar, seit die UUID nicht mehr kollidiert:
+          // kein Reload, kein Warten, jedes weitere Oeffnen geht direkt.
+          check('zweites Oeffnen geht ebenfalls direkt', first.view.open('btn-2') === 'opened');
+          check('und ruft wieder openView', first.sent.length === 2);
+
+          const alive = harness();
+          alive.view.noteAlive('ctx-1');
+          check('laufendes Fenster gilt als lebendig', alive.view.isAlive() === true);
+          check('laufendes Fenster wird umgeschaltet, nicht doppelt geoeffnet', alive.view.open('btn-3') === 'focus');
+          check(
+            'es bekommt den gewuenschten Button gesagt',
+            alive.sent.length === 1 && alive.sent[0].tell.response === 'designer:select' && alive.sent[0].tell.button === 'btn-3'
+          );
+          check('Adressat ist das Fenster', alive.sent[0].context === 'ctx-1');
+          alive.view.noteClosed();
+          check('geschlossenes Fenster gilt als tot', alive.view.isAlive() === false);
+          check('danach wird wieder geoeffnet', alive.view.open('btn-4') === 'opened');
+
+          // Der Host zerstoert das Fenster beim Klick auf sein X, laesst die Seite
+          // aber laufen. Sie meldet sich dann als unsichtbar ab und muss vor dem
+          // naechsten Oeffnen abgeraeumt werden, sonst haelt sie ewig eine
+          // HA-Verbindung offen.
+          const zombie = harness();
+          zombie.view.noteAlive('ctx-alt');
+          zombie.view.noteClosed();
+          check('verwaiste Seite wird vermerkt', zombie.view.stale === 'ctx-alt');
+          check('naechstes Oeffnen ist wieder erlaubt', zombie.view.open('btn-9') === 'opened');
+          check(
+            'die verwaiste Seite wird zum Schliessen aufgefordert',
+            zombie.sent.length === 2 && zombie.sent[0].tell && zombie.sent[0].tell.response === 'designer:close',
+            JSON.stringify(zombie.sent[0])
+          );
+          check('an die richtige Adresse', zombie.sent[0].context === 'ctx-alt');
+          check('danach ist nichts mehr verwaist', zombie.view.stale === null);
+          check('und ein Fenster wurde angefordert', !!zombie.sent[1].url);
+
+          const stale = harness({ now: () => 100000 });
+          stale.view.lastSeen = 1;
+          check('verstummtes Fenster gilt als tot', stale.view.isAlive() === false);
+        }
+
+        const summary = document.createElement('h2');
+        summary.textContent = failures === 0 ? '✓ alle Tests grün' : '✗ ' + failures + ' Test(s) fehlgeschlagen';
+        summary.className = failures === 0 ? 'pass' : 'fail';
+        out.prepend(summary);
+        console.log(failures === 0 ? 'SELFTEST OK' : 'SELFTEST FAILED: ' + failures);
+      })().catch((err) => {
+        check('Testlauf abgeschlossen', false, err && err.stack ? err.stack : String(err));
+        console.error(err);
+      });
+    </script>
+  </body>
+</html>

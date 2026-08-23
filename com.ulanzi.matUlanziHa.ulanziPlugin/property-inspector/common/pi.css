@@ -1,0 +1,309 @@
+/* Property-inspector styling on top of the SDK's uspi.css. */
+
+.ha-section {
+  margin: 4px 0 12px;
+}
+
+.ha-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b9096;
+  margin: 0 0 6px 2px;
+}
+
+/* --- connection ---------------------------------------------------------- */
+
+.ha-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #b9bec4;
+}
+
+.ha-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #6b7075;
+  flex: none;
+}
+
+.ha-status[data-status='online'] .ha-status-dot { background: #3ddc97; }
+.ha-status[data-status='connecting'] .ha-status-dot { background: #f4b740; }
+.ha-status[data-status='auth_failed'] .ha-status-dot,
+.ha-status[data-status='offline'] .ha-status-dot { background: #ff5c5c; }
+
+.ha-hint {
+  font-size: 11px;
+  color: #7d8288;
+  margin: 4px 2px 0;
+}
+
+/* --- picker --------------------------------------------------------------- */
+
+.ha-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border-radius: 6px;
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  color: #eceef0;
+  font-size: 13px;
+}
+
+.ha-search:focus {
+  outline: none;
+  border-color: #18bcf2;
+}
+
+.ha-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 7px 0;
+}
+
+.ha-chip {
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  color: #b9bec4;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ha-chip:hover { border-color: #55595f; }
+
+.ha-chip[aria-pressed='true'] {
+  background: #18bcf2;
+  border-color: #18bcf2;
+  color: #0e1013;
+  font-weight: 600;
+}
+
+.ha-area-select {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 7px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  color: #eceef0;
+  font-size: 12px;
+}
+
+.ha-list {
+  max-height: 268px;
+  overflow-y: auto;
+  border: 1px solid #33363b;
+  border-radius: 8px;
+  background: #212226;
+}
+
+.ha-list::-webkit-scrollbar { width: 8px; }
+.ha-list::-webkit-scrollbar-thumb { background: #3d4045; border-radius: 4px; }
+
+.ha-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #2b2d31;
+  color: #eceef0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ha-row:last-child { border-bottom: none; }
+.ha-row:hover { background: #2a2d33; }
+
+.ha-row[aria-selected='true'] {
+  background: #1d3a48;
+  box-shadow: inset 2px 0 0 #18bcf2;
+}
+
+.ha-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #55595f;
+  flex: none;
+}
+
+.ha-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ha-row-name {
+  display: block;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ha-row-meta {
+  display: block;
+  font-size: 10.5px;
+  color: #868b91;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ha-row-area {
+  color: #18bcf2;
+  font-weight: 600;
+}
+
+.ha-row-state {
+  font-size: 11px;
+  color: #a5aab0;
+  flex: none;
+}
+
+.ha-identify {
+  flex: none;
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  color: #d5d8dc;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.ha-row:hover .ha-identify,
+.ha-row[aria-selected='true'] .ha-identify { visibility: visible; }
+
+.ha-identify:hover { border-color: #18bcf2; color: #18bcf2; }
+
+.ha-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 12px;
+  color: #7d8288;
+}
+
+.ha-selected {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 7px 2px 0;
+  font-size: 11.5px;
+  color: #a5aab0;
+}
+
+.ha-selected-id {
+  font-family: Consolas, monospace;
+  font-size: 10.5px;
+  color: #7d8288;
+}
+
+/* --- key row (property inspector) ---------------------------------------- */
+
+.ha-key-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.ha-key-preview {
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
+  background: #101114;
+  flex: none;
+}
+
+.ha-key-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ha-key-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ha-btn {
+  flex: 1;
+  font: inherit;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  color: #d5d8dc;
+}
+
+.ha-btn:hover {
+  border-color: #55595f;
+}
+
+.ha-btn-primary {
+  background: #18bcf2;
+  border-color: #18bcf2;
+  color: #0e1013;
+  font-weight: 600;
+}
+
+/*
+  Busy state for the Designer button. The window needs a few hundred ms to
+  appear; without visible feedback that reads as "nothing happened" and invites
+  a second click.
+*/
+.ha-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.ha-btn-busy {
+  position: relative;
+  color: transparent;
+  opacity: 1;
+}
+
+.ha-btn-busy::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid rgba(14, 16, 19, 0.35);
+  border-top-color: #0e1013;
+  border-radius: 50%;
+  animation: ha-spin 0.7s linear infinite;
+}
+
+@keyframes ha-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ha-summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #a5aab0;
+  margin-bottom: 8px;
+}

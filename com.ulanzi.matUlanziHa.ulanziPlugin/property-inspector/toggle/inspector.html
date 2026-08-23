@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MatUlanzi.HomeAssistant — Key</title>
+    <link rel="stylesheet" href="../../libs/css/uspi.css?v=20260823b" />
+    <link rel="stylesheet" href="../common/pi.css?v=20260823b" />
+    <script src="../../libs/js/constants.js"></script>
+    <script src="../../libs/js/eventEmitter.js"></script>
+    <script src="../../libs/js/timers.js"></script>
+    <script src="../../libs/js/utils.js"></script>
+    <script src="../../libs/js/ulanziApi.js"></script>
+    <!--
+      Loaded with a runtime query: Studio serves plugin files from cache, so a
+      fixed `?v=` in the markup would go stale and edits would never run.
+    -->
+    <script>
+      (function () {
+        var version = Date.now();
+        var files = [
+          "../../plugin/src/error-trap.js",
+          "../../plugin/src/ha-client.js",
+          "../../plugin/src/ha-registry.js",
+          "../../plugin/src/ha-pool.js",
+          "../../plugin/src/library.js",
+          "../../plugin/src/ha-domains.js",
+          "../../plugin/src/mdi-icons.js",
+          "../../plugin/src/ha-links.js",
+          "../../plugin/src/key-style.js",
+          "../../plugin/src/key-renderer.js",
+          "../../plugin/src/i18n.js",
+          "../../plugin/src/actions/key-action.js"
+        ];
+        if (location.search.indexOf("preview=1") !== -1) {
+          files.push("../../../tools/fixtures.js", "../../../tools/ud-stub.js");
+        }
+        for (var i = 0; i < files.length; i++) {
+          document.write('<script src="' + files[i] + '?v=' + version + '"><\/script>');
+        }
+        // inspector.js must run after the markup exists: it connects right away
+        // and its connected handler touches the form. Loading it here would race
+        // the parser and leave the page unwired — empty dropdown, dead buttons.
+        window.__assetVersion = version;
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="uspi-wrapper hidden">
+      <form id="property-inspector" autocomplete="off">
+        <div class="ha-section">
+          <div class="ha-section-title" data-localize>Button</div>
+
+          <div class="ha-key-row">
+            <img id="preview" class="ha-key-preview" alt="" />
+            <div class="ha-key-side">
+              <select class="uspi-item-value" name="button" id="button-select"></select>
+              <div class="ha-key-actions">
+                <button type="button" class="ha-btn" id="edit-button" data-localize>Edit</button>
+                <button type="button" class="ha-btn ha-btn-primary" id="open-designer" data-localize>
+                  Designer
+                </button>
+              </div>
+            </div>
+          </div>
+          <p class="ha-hint" id="button-hint"></p>
+        </div>
+
+        <details class="ha-section">
+          <summary class="ha-summary" data-localize>Overrides for this key</summary>
+          <div class="uspi-item">
+            <div class="uspi-item-label" data-localize>Label</div>
+            <input
+              type="text"
+              class="uspi-item-value"
+              name="label"
+              placeholder="Leave empty to use the entity name"
+              data-localize-placeholder="Leave empty to use the entity name"
+            />
+          </div>
+          <div class="uspi-item">
+            <div class="uspi-item-label" data-localize>Show room on key</div>
+            <select class="uspi-item-value" name="show_room">
+              <option value="1" data-localize="On">On</option>
+              <option value="0" data-localize="Off">Off</option>
+            </select>
+          </div>
+        </details>
+      </form>
+
+      <div class="ha-section">
+        <div class="ha-section-title" data-localize>Connection</div>
+        <div id="connections"></div>
+      </div>
+
+      <p class="ha-hint hidden" id="designer-hint"></p>
+    </div>
+
+    <!-- Last, so the markup above is guaranteed to exist. -->
+    <script>
+      document.write(
+        '<script src="inspector.js?v=' + (window.__assetVersion || Date.now()) + '"><\/script>'
+      );
+    </script>
+  </body>
+</html>
