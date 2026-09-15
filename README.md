@@ -109,6 +109,35 @@ sortiert (`DG › Dachboden`, `EG › Büro`, …). Gebaut wird die Adresse in
 **gar nichts** — weder relativ noch absolut, ohne Fehlermeldung. Deshalb ist
 jedes Ziel hier eine Remote-Adresse.
 
+### Aktionen kommen aus Home Assistant selbst
+
+Eine handgepflegte Liste von Aktionen war ein Fehler: sie kannte für Rollos
+genau eine Aktion, während Home Assistant zehn kennt — und eine unbekannte
+Integration hätte sie nie abgedeckt. `get_services` liefert alles, und zu jedem
+Feld einen Selector, der genau beschreibt, was es annimmt. Daraus baut sich der
+Editor selbst:
+
+```
+cover.buro   →  38 Aktionen angeboten
+   cover.open_cover, close_cover, stop_cover, set_cover_position,
+   toggle + vier Tilt-Varianten
+   homeassistant.turn_on / turn_off / toggle   (generisch)
+
+set_cover_position.position  →  {min:0, max:100, step:1, unit:"%"}  →  Prozentregler
+light.turn_on.rgb_color      →  color_rgb                          →  Farbwähler
+light.turn_on.color_temp_kelvin → {unit:"kelvin", min:2000, max:6500} → Kelvin-Regler
+```
+
+Gemessen an einer echten Instanz: 76 Domains. Die vorkommenden Selectors sind
+text (144), number (76), boolean (42), select (38) und object (38); alles, was
+sich nicht sinnvoll darstellen lässt, bleibt über das JSON-Feld erreichbar und
+der Dienst wird als unvollständig markiert.
+
+**Eine Ausnahme ist bewusst gesetzt:** die Domain `homeassistant` enthält auch
+`restart` und `stop`. Beides hat einen Fehlgriff entfernt auf einem Tastengerät
+nichts verloren, deshalb werden dort nur `turn_on`, `turn_off`, `toggle` und
+`update_entity` angeboten. Von Hand eintippen kann man alles.
+
 ### Standard-Aktionen statt JSON tippen
 
 Für die alltäglichen Wünsche gibt es fertige Aktionen mit echten Eingabefeldern;

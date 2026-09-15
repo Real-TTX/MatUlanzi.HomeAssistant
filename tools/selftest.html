@@ -9,6 +9,7 @@
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-domains.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/mdi-icons.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/property-inspector/common/color-controls.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-services.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/action-presets.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/switch-plan.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/target-context.js"></script>
@@ -450,6 +451,75 @@
         check('WS-URL aus nacktem Host', haToWebSocketUrl('ha.local:8123') === 'ws://ha.local:8123/api/websocket');
         check('i18n de', new I18n('de_DE').t('On') === 'An');
         check('i18n Fallback en', new I18n('fr_FR').t('On') === 'On');
+
+        section('Dienste kommen aus Home Assistant selbst');
+        {
+          const hs = HaServices;
+          const katalog = {
+            cover: {
+              set_cover_position: {
+                name: 'Set position',
+                fields: {
+                  position: { required: true, selector: { number: { min: 0, max: 100, step: 1, unit_of_measurement: '%' } } },
+                  speed: { selector: { state: { attribute: 'speed' } } }
+                }
+              },
+              open_cover: { fields: {} },
+              stop_cover: { fields: {} }
+            },
+            light: {
+              turn_on: {
+                fields: {
+                  rgb_color: { selector: { color_rgb: null } },
+                  color_temp_kelvin: { selector: { color_temp: { unit: 'kelvin', min: 2000, max: 6500 } } },
+                  brightness_pct: { selector: { number: { min: 0, max: 100, unit_of_measurement: '%' } } },
+                  effect: { selector: { text: null } },
+                  advanced_blob: { selector: { object: {} } }
+                }
+              }
+            },
+            homeassistant: { turn_on: { fields: {} }, turn_off: { fields: {} }, toggle: { fields: {} } }
+          };
+
+          const rollo = hs.servicesFor(katalog, 'cover.buro');
+          check('eigene Domain kommt zuerst', rollo[0].domain === 'cover');
+          check('alle Rollo-Dienste dabei', rollo.filter((d) => d.domain === 'cover').length === 3);
+          check('generisch Ein/Aus wird mit angeboten', rollo.some((d) => d.domain === 'homeassistant' && d.service === 'turn_on'));
+          katalog.homeassistant.restart = { fields: {} };
+          katalog.homeassistant.stop = { fields: {} };
+          const nochmal = hs.servicesFor(katalog, 'cover.buro').filter((d) => d.domain === 'homeassistant').map((d) => d.service);
+          check('HA neu starten wird NICHT angeboten', nochmal.indexOf('restart') === -1, nochmal.join(','));
+          check('HA anhalten wird NICHT angeboten', nochmal.indexOf('stop') === -1);
+          check('Schalten bleibt', nochmal.indexOf('turn_on') !== -1);
+
+          const position = hs.find(katalog, 'cover', 'set_cover_position');
+          const feld = position.fields.filter((f) => f.key === 'position')[0];
+          check('Prozentfeld erkannt', feld.type === 'percent' && feld.min === 0 && feld.max === 100, JSON.stringify(feld));
+          check('Pflichtfeld erkannt', feld.required === true);
+
+          const licht = hs.find(katalog, 'light', 'turn_on');
+          const arten = {};
+          licht.fields.forEach((f) => { arten[f.key] = f.type; });
+          check('Farbe wird zum Farbwähler', arten.rgb_color === 'color');
+          check('Farbtemperatur wird zum Kelvin-Regler', arten.color_temp_kelvin === 'kelvin');
+          check('Helligkeit wird zum Prozentregler', arten.brightness_pct === 'percent');
+          check('freier Text bleibt Text', arten.effect === 'text');
+          check('unrenderbares Feld fällt raus', arten.advanced_blob === undefined);
+          check('und wird als unvollständig vermerkt', licht.partial === true);
+          check('ein vollständiger Dienst nicht', position.partial === false);
+
+          check('step "any" wird zu 1', hs.normalizeField('x', { selector: { number: { step: 'any' } } }).step === 1);
+          check('Auswahl wird zur Liste', JSON.stringify(hs.normalizeField('m', { selector: { select: { options: ['a', 'b'] } } }).options) === '["a","b"]');
+          check('Objekt-Auswahl liefert Werte', JSON.stringify(hs.normalizeField('m', { selector: { select: { options: [{ value: 'a', label: 'A' }] } } }).options) === '["a"]');
+          check('Ja/Nein erkannt', hs.normalizeField('b', { selector: { boolean: null } }).type === 'boolean');
+          check('Beschriftung aus dem Schlüssel', hs.normalizeField('color_temp_kelvin', {}).label === 'Color temp kelvin');
+          check('HA-Name schlägt den Schlüssel', hs.normalizeField('x', { name: 'Fancy' }).label === 'Fancy');
+
+          check('Daten: Farbe wird zu RGB', JSON.stringify(hs.buildData(licht.fields, { rgb_color: '#ffa03c' }).rgb_color) === '[255,160,60]');
+          check('Daten: leeres Feld fehlt', hs.buildData(licht.fields, { brightness_pct: '' }).brightness_pct === undefined);
+          check('Daten: Zahl bleibt Zahl', hs.buildData(licht.fields, { brightness_pct: '40' }).brightness_pct === 40);
+          check('Werte zurücklesen: Farbe als Hex', hs.readValues(licht.fields, { rgb_color: [255, 160, 60] }).rgb_color === '#ffa03c');
+        }
 
         section('Farbregler: die Mathematik dahinter');
         {

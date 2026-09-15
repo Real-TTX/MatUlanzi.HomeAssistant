@@ -460,11 +460,15 @@
     });
 
     el('preset-pick').addEventListener('change', () => {
-      const preset = global.ActionPresets.byId(el('preset-pick').value);
-      if (!preset) return;
+      const wahl = String(el('preset-pick').value || '');
+      if (!wahl) return;
+      const punkt = wahl.indexOf('.');
       const fields = el('button-form').elements;
-      fields.service_domain.value = preset.domain;
-      fields.service_name.value = preset.service;
+      fields.service_domain.value = wahl.slice(0, punkt);
+      fields.service_name.value = wahl.slice(punkt + 1);
+      // A different service takes different data; keeping the old would send
+      // keys the new one rejects.
+      fields.service_data.value = '';
       commitButtonForm();
       const entry = library.button(selection.id);
       if (entry) renderServicePresets(entry);
@@ -960,15 +964,23 @@
     // that is the only domain whose turn_on takes them.
     const proben = wanted ? [wanted] : entities;
     const alleLichter = proben.length && proben.every((id) => id.indexOf('light.') === 0);
-    const preset = alleLichter ? global.ActionPresets.byId('light_on') : null;
-    const geparst = global.SwitchPlan.parseData(data.on);
-    renderPresetFields(el('switch-preset-fields'), preset, geparst.error ? {} : geparst.data, () => {
-      el('switch-on').value = mergeIntoJson(
-        el('switch-on').value,
-        preset,
-        collectPresetValues(el('switch-preset-fields'))
-      );
-      commitSwitchEditor();
+    const presetHost = el('switch-preset-fields');
+    if (!alleLichter) {
+      presetHost.innerHTML = '';
+      return;
+    }
+
+    // The fields come from Home Assistant itself, so a new light feature shows
+    // up here without anyone maintaining a list.
+    const verbindung = pool.get(entry.connection) || pool.entries()[0];
+    ladeDienste(verbindung).then((katalog) => {
+      if (!katalog || selection.id !== entry.id) return;
+      const dienst = global.HaServices.find(katalog, 'light', 'turn_on');
+      const geparst = global.SwitchPlan.parseData(data.on);
+      renderPresetFields(presetHost, dienst, geparst.error ? {} : geparst.data, () => {
+        el('switch-on').value = mergeIntoJson(el('switch-on').value, dienst, collectPresetValues(presetHost));
+        commitSwitchEditor();
+      });
     });
     showSwitchProblem(entry);
   }
@@ -1057,7 +1069,7 @@
     host.innerHTML = '';
     if (!preset || !preset.fields.length) return;
 
-    const values = global.ActionPresets.readValues(preset, data);
+    const values = global.HaServices.readValues(preset ? preset.fields : [], data);
 
     for (const field of preset.fields) {
       const wrap = doc.createElement('div');
@@ -1165,11 +1177,11 @@
 
   /** The colour control hands back rgb; the preset catalogue expects hex. */
   function controlsZuHex(rgb) {
-    return global.ActionPresets.rgbToHex(rgb);
+    return global.HaServices.rgbToHex(rgb);
   }
 
   function hexZuRgb(hex) {
-    return global.ActionPresets.hexToRgb(hex);
+    return global.HaServices.hexToRgb(hex);
   }
 
   /** Colour currently chosen next to a brightness slider, for its gradient. */
@@ -1182,7 +1194,7 @@
   function mergeIntoJson(json, preset, values) {
     const parsed = global.SwitchPlan.parseData(json);
     const base = parsed.error ? {} : parsed.data || {};
-    const fresh = global.ActionPresets.buildData(preset, values);
+    const fresh = global.HaServices.buildData(preset ? preset.fields : [], values);
 
     const merged = Object.assign({}, base);
     for (const field of preset ? preset.fields : []) {
@@ -1214,29 +1226,46 @@
     if (!pick || !host) return;
 
     const entityId = global.Library.entitiesOf(entry)[0] || '';
-    const angebote = global.ActionPresets.forEntity(entityId);
-    const treffer = global.ActionPresets.match(fields.service_domain.value, fields.service_name.value);
+    const verbindung = pool.get(entry.connection) || pool.entries()[0];
 
-    fillOptions(
-      pick,
-      [{ id: '', name: '— ' + t('Own service') + ' —' }].concat(
-        angebote.map((preset) => ({ id: preset.id, name: t(preset.label) }))
-      )
-    );
-    pick.value = treffer ? treffer.id : '';
+    ladeDienste(verbindung).then((katalog) => {
+      // Still the right button? The user may have clicked on while we waited.
+      if (!katalog || selection.id !== entry.id) return;
 
-    const parsed = global.SwitchPlan.parseData(fields.service_data.value);
-    renderPresetFields(host, treffer, parsed.error ? {} : parsed.data, () => {
-      const preset = global.ActionPresets.byId(pick.value);
-      if (!preset) return;
-      fields.service_data.value = mergeIntoJson(
-        fields.service_data.value,
-        preset,
-        collectPresetValues(host)
+      const angebote = global.HaServices.servicesFor(katalog, entityId);
+      const gewaehlt = fields.service_domain.value + '.' + fields.service_name.value;
+
+      fillOptions(
+        pick,
+        [{ id: '', name: '— ' + t('Own service') + ' —' }].concat(
+          angebote.map((dienst) => ({
+            id: dienst.domain + '.' + dienst.service,
+            name: dienst.domain + '.' + dienst.service + (dienst.label ? ' — ' + dienst.label : '')
+          }))
+        )
       );
-      commitButtonForm();
+      pick.value = angebote.some((d) => d.domain + '.' + d.service === gewaehlt) ? gewaehlt : '';
+
+      const dienst = global.HaServices.find(
+        katalog,
+        fields.service_domain.value,
+        fields.service_name.value
+      );
+      const geparst = global.SwitchPlan.parseData(fields.service_data.value);
+      renderPresetFields(host, dienst, geparst.error ? {} : geparst.data, () => {
+        fields.service_data.value = mergeIntoJson(fields.service_data.value, dienst, collectPresetValues(host));
+        commitButtonForm();
+      });
+
+      const hinweis = el('service-hint');
+      if (hinweis && dienst && dienst.partial) {
+        hinweis.textContent = t('Some fields of this service are only reachable through the JSON below.');
+      }
     });
   }
+
+  /** One catalogue per connection, fetched once — services rarely change. */
+  const ladeDienste = global.HaServices.loader({ log: () => {} });
 
   /** Tells at a glance whether the JSON parses and what the key will send. */
   function applyServiceHint() {
