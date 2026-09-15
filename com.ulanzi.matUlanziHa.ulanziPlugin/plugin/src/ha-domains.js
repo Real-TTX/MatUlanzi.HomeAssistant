@@ -70,6 +70,10 @@
         return { domain: 'scene', service: 'turn_on', data: {} };
       case 'script':
         return { domain: 'script', service: 'toggle', data: {} };
+      case 'automation':
+        // Not homeassistant.toggle: that enables or disables the automation,
+        // while pressing a key almost always means "run it now".
+        return { domain: 'automation', service: 'trigger', data: {} };
       case 'button':
         return { domain: 'button', service: 'press', data: {} };
       case 'input_button':
@@ -92,6 +96,139 @@
         // homeassistant.toggle covers every on/off domain generically.
         return { domain: 'homeassistant', service: 'toggle', data: {} };
     }
+  }
+
+  /**
+   * Plans a relative change — the keypad answer to a rotary dial.
+   *
+   * `delta` is in the unit the user sees: degrees for climate, percent for
+   * light, cover, fan and volume. Everything is clamped to the range the entity
+   * itself reports, because Home Assistant silently ignores a value outside it
+   * and the key would just look broken.
+   *
+   * @returns {{domain,service,data,value,unit,text}|null} null when the entity
+   *          has nothing to step.
+   */
+  function stepPlan(entityId, stateObj, delta) {
+    if (!stateObj || isUnavailable(stateObj)) return null;
+    const domain = domainOf(entityId);
+    const attrs = stateObj.attributes || {};
+    const amount = Number(delta) || 0;
+    if (!amount) return null;
+
+    if (domain === 'climate') {
+      const current = Number(attrs.temperature);
+      if (!isFinite(current)) return null;
+      const min = isFinite(Number(attrs.min_temp)) ? Number(attrs.min_temp) : 7;
+      const max = isFinite(Number(attrs.max_temp)) ? Number(attrs.max_temp) : 35;
+      const value = clamp(round1(current + amount), min, max);
+      return {
+        domain: 'climate',
+        service: 'set_temperature',
+        data: { temperature: value },
+        value: value,
+        unit: '\u00b0',
+        text: value + '\u00b0'
+      };
+    }
+
+    if (domain === 'light') {
+      const raw = Number(attrs.brightness);
+      const current = isFinite(raw) ? Math.round((raw / 255) * 100) : 0;
+      const value = clamp(Math.round(current + amount), 0, 100);
+      // Dimming to zero means off; light.turn_on with 0 % is a no-op in HA.
+      if (value <= 0) {
+        return { domain: 'light', service: 'turn_off', data: {}, value: 0, unit: '%', text: '0%' };
+      }
+      return {
+        domain: 'light',
+        service: 'turn_on',
+        data: { brightness_pct: value },
+        value: value,
+        unit: '%',
+        text: value + '%'
+      };
+    }
+
+    if (domain === 'cover') {
+      const current = Number(attrs.current_position);
+      if (!isFinite(current)) return null;
+      const value = clamp(Math.round(current + amount), 0, 100);
+      return {
+        domain: 'cover',
+        service: 'set_cover_position',
+        data: { position: value },
+        value: value,
+        unit: '%',
+        text: value + '%'
+      };
+    }
+
+    if (domain === 'fan') {
+      const current = Number(attrs.percentage);
+      if (!isFinite(current)) return null;
+      const stepSize = Number(attrs.percentage_step) || 1;
+      const value = clamp(Math.round((current + amount) / stepSize) * stepSize, 0, 100);
+      return {
+        domain: 'fan',
+        service: 'set_percentage',
+        data: { percentage: value },
+        value: value,
+        unit: '%',
+        text: value + '%'
+      };
+    }
+
+    if (domain === 'media_player') {
+      const current = Number(attrs.volume_level);
+      if (!isFinite(current)) return null;
+      const value = clamp(Math.round(current * 100 + amount), 0, 100);
+      return {
+        domain: 'media_player',
+        service: 'volume_set',
+        data: { volume_level: round2(value / 100) },
+        value: value,
+        unit: '%',
+        text: value + '%'
+      };
+    }
+
+    if (domain === 'number' || domain === 'input_number') {
+      const current = Number(stateObj.state);
+      if (!isFinite(current)) return null;
+      const min = isFinite(Number(attrs.min)) ? Number(attrs.min) : -Infinity;
+      const max = isFinite(Number(attrs.max)) ? Number(attrs.max) : Infinity;
+      const value = clamp(round1(current + amount), min, max);
+      return {
+        domain: domain,
+        service: 'set_value',
+        data: { value: value },
+        value: value,
+        unit: attrs.unit_of_measurement || '',
+        text: withUnit(formatNumber(value), attrs.unit_of_measurement)
+      };
+    }
+
+    return null;
+  }
+
+  /** Domains a relative step makes sense for — the designer asks before offering it. */
+  function isSteppable(entityId) {
+    const domain = domainOf(entityId);
+    return ['climate', 'light', 'cover', 'fan', 'media_player', 'number', 'input_number'].indexOf(domain) !== -1;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  /** One decimal: 21.5 + 0.5 must not become 22.000000000000004 on a key. */
+  function round1(value) {
+    return Math.round(value * 10) / 10;
+  }
+
+  function round2(value) {
+    return Math.round(value * 100) / 100;
   }
 
   /** Big centred text for the key. */
@@ -196,6 +333,8 @@
     isActive: isActive,
     domainOf: domainOf,
     pressService: pressService,
+    stepPlan: stepPlan,
+    isSteppable: isSteppable,
     valueText: valueText,
     progressOf: progressOf,
     accentColor: accentColor

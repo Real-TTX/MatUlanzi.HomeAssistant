@@ -8,6 +8,7 @@
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-registry.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-domains.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/mdi-icons.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/target-context.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-links.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/key-style.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/library.js"></script>
@@ -446,6 +447,81 @@
         check('WS-URL aus nacktem Host', haToWebSocketUrl('ha.local:8123') === 'ws://ha.local:8123/api/websocket');
         check('i18n de', new I18n('de_DE').t('On') === 'An');
         check('i18n Fallback en', new I18n('fr_FR').t('On') === 'On');
+
+        section('Relative Schritte (Ersatz für den Drehknopf)');
+        {
+          const klima = (soll, min, max) => ({
+            state: 'cool',
+            attributes: { temperature: soll, min_temp: min, max_temp: max, current_temperature: 22 }
+          });
+          const plan = HaDomains.stepPlan('climate.buero', klima(21, 7, 35), 1);
+          check('Klima +1 Grad', plan.service === 'set_temperature' && plan.data.temperature === 22, JSON.stringify(plan && plan.data));
+          check('Klima -1 Grad', HaDomains.stepPlan('climate.buero', klima(21, 7, 35), -1).data.temperature === 20);
+          check('halbe Grad ohne Fließkomma-Müll', HaDomains.stepPlan('climate.b', klima(21.5, 7, 35), 0.5).data.temperature === 22);
+          check('oben begrenzt auf max_temp', HaDomains.stepPlan('climate.b', klima(35, 7, 35), 1).data.temperature === 35);
+          check('unten begrenzt auf min_temp', HaDomains.stepPlan('climate.b', klima(7, 7, 35), -1).data.temperature === 7);
+
+          const licht = (b) => ({ state: 'on', attributes: { brightness: b } });
+          check('Licht +10 Prozent', HaDomains.stepPlan('light.x', licht(128), 10).data.brightness_pct === 60, JSON.stringify(HaDomains.stepPlan('light.x', licht(128), 10)));
+          check('Licht auf 0 schaltet aus', HaDomains.stepPlan('light.x', licht(10), -20).service === 'turn_off');
+          check('Licht über 100 wird gekappt', HaDomains.stepPlan('light.x', licht(255), 10).data.brightness_pct === 100);
+
+          check('Rollo bekommt Position', HaDomains.stepPlan('cover.x', { state: 'open', attributes: { current_position: 40 } }, 10).data.position === 50);
+          check('Lautstärke rechnet in Prozent', HaDomains.stepPlan('media_player.x', { state: 'playing', attributes: { volume_level: 0.5 } }, 10).data.volume_level === 0.6);
+          check('Zahl-Entität mit eigenen Grenzen', HaDomains.stepPlan('number.x', { state: '5', attributes: { min: 0, max: 6 } }, 5).data.value === 6);
+
+          check('Schalter lässt sich nicht verstellen', HaDomains.stepPlan('switch.x', { state: 'on', attributes: {} }, 1) === null);
+          check('ohne Zustand kein Plan', HaDomains.stepPlan('climate.x', null, 1) === null);
+          check('Schrittweite 0 ergibt nichts', HaDomains.stepPlan('climate.x', klima(21, 7, 35), 0) === null);
+          check('unerreichbare Entität ergibt nichts', HaDomains.stepPlan('climate.x', { state: 'unavailable', attributes: {} }, 1) === null);
+
+          check('steppbare Domains erkannt', HaDomains.isSteppable('climate.x') && HaDomains.isSteppable('light.x'));
+          check('nicht steppbare erkannt', !HaDomains.isSteppable('switch.x') && !HaDomains.isSteppable('scene.x'));
+        }
+
+        section('Automationen auslösen statt schalten');
+        {
+          const call = HaDomains.pressService('automation.morgens', { state: 'on', attributes: {} });
+          check('automation.trigger statt toggle', call.domain === 'automation' && call.service === 'trigger', JSON.stringify(call));
+          check('Szene bleibt turn_on', HaDomains.pressService('scene.abend', { state: 'on' }).service === 'turn_on');
+          check('Schalter bleibt generisch', HaDomains.pressService('switch.x', { state: 'on' }).domain === 'homeassistant');
+        }
+
+        section('Kontext-Ziel (folgt dem zuletzt gewählten Gerät)');
+        {
+          let jetzt = 1000;
+          const ziel = new TargetContext({ ttlMs: 5000, now: () => jetzt });
+          let rufe = 0;
+          ziel.on(() => rufe++);
+
+          check('anfangs kein Ziel', ziel.get() === null);
+          check('leere Entität wird abgelehnt', ziel.set('') === false);
+          check('Ziel setzen meldet Erfolg', ziel.set('climate.buero', 'conn-1', 'Büro') === true);
+          check('Horcher wurde benachrichtigt', rufe === 1);
+          check('Ziel wird geliefert', ziel.get().entityId === 'climate.buero');
+          check('Verbindung reist mit', ziel.get().connectionId === 'conn-1');
+          check('Name reist mit', ziel.get().name === 'Büro');
+
+          jetzt += 4000;
+          check('vor Ablauf noch da', ziel.get() !== null);
+          check('Restzeit wird gemeldet', ziel.remaining() === 1000, String(ziel.remaining()));
+
+          jetzt += 2000;
+          check('nach Ablauf weg', ziel.get() === null);
+          check('Restzeit dann 0', ziel.remaining() === 0);
+
+          jetzt = 20000;
+          ziel.set('light.kueche', 'conn-1', 'Küche');
+          check('neues Ziel ersetzt das alte', ziel.get().entityId === 'light.kueche');
+          check('Löschen meldet Erfolg', ziel.clear() === true);
+          check('danach ist nichts gesetzt', ziel.get() === null);
+          check('zweites Löschen meldet nichts', ziel.clear() === false);
+
+          const stur = new TargetContext({ ttlMs: 1000, now: () => 0 });
+          stur.on(() => { throw new Error('Horcher explodiert'); });
+          stur.set('light.x', 'c');
+          check('ein kaputter Horcher reißt nichts mit', stur.get().entityId === 'light.x');
+        }
 
         section('Öffnen: Adressen nach Home Assistant');
         {

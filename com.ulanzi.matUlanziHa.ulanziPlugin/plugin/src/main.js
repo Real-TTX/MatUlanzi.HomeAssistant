@@ -9,6 +9,7 @@
   const LIBRARY_POLL_MS = 8000;
   const LEGACY_LOOKUP_DELAY_MS = 700;
   const KEY_POLL_MS = 5000;
+  const TARGET_POLL_MS = 5000;
   // $UD and Utils are the SDK's top-level consts: reachable by bare name only,
   // they live in the global lexical scope, not on window.
 
@@ -25,6 +26,9 @@
   const i18n = new global.I18n('en');
   const pool = new global.HaPool({ log: log });
   const renderer = new global.KeyRenderer();
+  // One shared target for every "context" key: long-press a device, and the
+  // control keys on any page follow it until it expires.
+  const targets = new global.TargetContext({ log: log });
   // The window gets a uuid of its own — never an action's. The host drops its
   // whole bookkeeping for a uuid when a view closes, which used to cut the
   // property inspector off from the host entirely. See designer-window.js.
@@ -72,6 +76,7 @@
         library: () => library,
         renderer: renderer,
         i18n: i18n,
+      targets: targets,
         log: log
       });
       actions.set(context, action);
@@ -157,6 +162,25 @@
     // The definitions changed under the keys, so ignore the "same image" guard.
     for (const action of actions.values()) action.forceRepaint();
   }
+
+  // A new target changes what every context key shows and acts on.
+  targets.on(repaintContextKeys);
+
+  function repaintContextKeys() {
+    for (const action of actions.values()) {
+      const def = action.definition();
+      if (def && def.targetMode === 'context') action.forceRepaint();
+    }
+  }
+
+  // The target expires lazily — nothing would tell the keys, so notice the
+  // moment it lapses and let them fall back to "no target".
+  let hadTarget = false;
+  global.setInterval(() => {
+    const has = Boolean(targets.get());
+    if (hadTarget && !has) repaintContextKeys();
+    hadTarget = has;
+  }, TARGET_POLL_MS);
 
   // --- UlanziStudio events --------------------------------------------------
 
@@ -324,6 +348,7 @@
     actions: actions,
     library: () => library,
     paints: () => global.KEY_PAINT_LOG,
+    targets: targets,
     designer: designer,
     repaintAll: () => {
       for (const action of actions.values()) action.forceRepaint();

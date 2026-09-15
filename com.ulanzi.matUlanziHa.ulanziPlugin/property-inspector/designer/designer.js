@@ -773,6 +773,13 @@
     );
     fields.connection.value = entry.connection || (library.defaultConnection() || {}).id || '';
 
+    fields.service_domain.value = entry.service_domain || '';
+    fields.service_name.value = entry.service_name || '';
+    fields.service_data.value = entry.service_data || '';
+    fields.step_amount.value = entry.step_amount === undefined ? 1 : entry.step_amount;
+    fields.target_mode.value = entry.target_mode === 'context' ? 'context' : 'fixed';
+    fields.long_press.value = entry.long_press || 'identify';
+
     fields.open_target.value = entry.open_target || 'entity';
     fields.open_dashboard.value = entry.open_dashboard || '';
     fields.open_url.value = entry.open_url || '';
@@ -846,6 +853,12 @@
       type: fields.type.value,
       refresh_interval: Number(fields.refresh_interval.value) || 0,
       group_rule: fields.group_rule.value,
+      service_domain: fields.service_domain.value.trim(),
+      service_name: fields.service_name.value.trim(),
+      service_data: fields.service_data.value,
+      step_amount: Number(fields.step_amount.value) || 0,
+      target_mode: fields.target_mode.value,
+      long_press: fields.long_press.value,
       open_target: fields.open_target.value,
       open_area: fields.open_area.value,
       open_dashboard: fields.open_dashboard.value,
@@ -872,7 +885,33 @@
   function applyTypeVisibility(type) {
     el('interval-field').classList.toggle('hidden', type !== 'info');
     el('open-fields').classList.toggle('hidden', type !== 'open');
+    el('service-fields').classList.toggle('hidden', type !== 'service');
+    el('step-field').classList.toggle('hidden', type !== 'step');
     if (type === 'open') applyOpenVisibility();
+    if (type === 'service' || type === 'step') applyServiceHint();
+  }
+
+  /** Tells at a glance whether the JSON parses and what the key will send. */
+  function applyServiceHint() {
+    const fields = el('button-form').elements;
+    const hint = el('service-hint');
+    if (!hint) return;
+
+    const raw = String(fields.service_data.value || '').trim();
+    if (raw) {
+      try {
+        JSON.parse(raw);
+      } catch (err) {
+        hint.textContent = t('Data is not valid JSON') + ': ' + err.message;
+        hint.classList.add('bad');
+        return;
+      }
+    }
+    hint.classList.remove('bad');
+    const call =
+      (fields.service_domain.value.trim() || '?') + '.' + (fields.service_name.value.trim() || '?');
+    hint.textContent =
+      t('Sends') + ' ' + call + ' ' + (raw ? raw : '{}');
   }
 
   /** Only the field that matches the chosen jump target, plus a live preview. */

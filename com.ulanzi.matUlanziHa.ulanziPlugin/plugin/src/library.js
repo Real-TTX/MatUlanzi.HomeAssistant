@@ -221,6 +221,12 @@
           refresh_interval: 0,
           group_rule: GROUP_RULES.any_on,
           open_target: 'entity',
+          service_domain: '',
+          service_name: '',
+          service_data: '',
+          step_amount: 1,
+          target_mode: 'fixed',
+          long_press: 'identify',
           open_area: '',
           open_dashboard: '',
           open_url: '',
@@ -298,6 +304,15 @@
           entityId: entities[0] || '',
           groupRule: button.group_rule === GROUP_RULES.all_on ? GROUP_RULES.all_on : GROUP_RULES.any_on,
           // Everything an 'open' key needs; harmless on the other types.
+          // Follows the device picked on another key instead of a fixed one.
+          targetMode: button.target_mode === 'context' ? 'context' : 'fixed',
+          longPress: button.long_press || 'identify',
+          service: {
+            domain: button.service_domain || '',
+            name: button.service_name || '',
+            data: button.service_data || ''
+          },
+          stepAmount: Number(button.step_amount) || 0,
           open: {
             target: button.open_target || 'entity',
             entityId: entities[0] || '',
@@ -323,6 +338,10 @@
           entityIds: [keySettings.entity_id],
           entityId: keySettings.entity_id,
           groupRule: GROUP_RULES.any_on,
+          targetMode: 'fixed',
+          longPress: 'identify',
+          service: { domain: '', name: '', data: '' },
+          stepAmount: 0,
           open: { target: 'entity', entityId: keySettings.entity_id, area: '', dashboard: '', url: '' },
           style: global.KeyStyle.mergeStyle(null, keySettings),
           label: keySettings.label || '',

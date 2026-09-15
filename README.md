@@ -109,6 +109,51 @@ sortiert (`DG › Dachboden`, `EG › Büro`, …). Gebaut wird die Adresse in
 **gar nichts** — weder relativ noch absolut, ohne Fehlermeldung. Deshalb ist
 jedes Ziel hier eine Remote-Adresse.
 
+### Typ „Dienst-Aufruf"
+
+Ruft einen beliebigen Home-Assistant-Dienst mit eigenen JSON-Daten auf —
+`climate.set_hvac_mode`, `notify.*`, `cover.set_position`, alles. Die gewählte
+Entität wird als Ziel mitgeschickt, Dienste ohne Ziel lässt man einfach ohne.
+Der Designer prüft das JSON beim Tippen und zeigt an, was die Taste senden wird;
+ungültiges JSON wird rot, statt später stumm nichts zu tun.
+
+### Typ „Schritt"
+
+Verstellt relativ — das ist die Tastenfeld-Antwort auf den Drehknopf, den der
+D200 nicht hat. Die Schrittweite steht in der Einheit, die man sieht:
+
+| Domain | Dienst | Einheit |
+| --- | --- | --- |
+| `climate` | `set_temperature` | Grad, begrenzt auf `min_temp`/`max_temp` |
+| `light` | `turn_on` mit `brightness_pct` | Prozent, 0 % schaltet aus |
+| `cover` | `set_cover_position` | Prozent |
+| `fan` | `set_percentage` | Prozent, gerastert auf `percentage_step` |
+| `media_player` | `volume_set` | Prozent |
+| `number`, `input_number` | `set_value` | eigene Einheit, eigene Grenzen |
+
+Begrenzt wird immer auf den Bereich, den die Entität selbst meldet: Home
+Assistant ignoriert einen Wert außerhalb stillschweigend, und die Taste sähe
+kaputt aus.
+
+### Kontext-Tasten: eine Steuerseite für alle Geräte
+
+Eine Taste kann statt auf ihre eigene Entität auf **das zuletzt gewählte Gerät**
+wirken. Damit bedient eine einzige Seite jedes Thermostat, statt eine Seite pro
+Gerät zu brauchen:
+
+```
+Seite 1:  Thermostat lang drücken        → Ziel = climate.buero
+Seite 2:  −1°   COOL   +1°   Info        → wirken alle auf climate.buero
+          (nach zwei Minuten ohne Nutzung verfällt das Ziel)
+```
+
+Was ein langer Druck tut, ist pro Button einstellbar: identifizieren, als
+Kontext-Gerät merken, in Home Assistant öffnen oder nichts.
+
+Das ist bewusst die Übersetzung des „Smart Dialer"-Musters anderer Plugins auf
+ein Tastenfeld. Der echte Dialer braucht einen Encoder; dieses Gerät ist laut
+Studios eigener Konfiguration ein `Ulanzi Deck 5x3` ohne Drehknöpfe.
+
 ### Kein Untermenü auf dem Gerät
 
 Ein Untermenü, das sich auf Nachbartasten legt, ist mit diesem Host nicht

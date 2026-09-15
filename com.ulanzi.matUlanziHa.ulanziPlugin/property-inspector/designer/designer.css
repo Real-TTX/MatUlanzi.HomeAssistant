@@ -546,3 +546,8 @@ legend {
     width: 94vw;
   }
 }
+
+/* Invalid service JSON: the key would send nothing, so make it obvious. */
+.hint.bad {
+  color: #ff8a80;
+}

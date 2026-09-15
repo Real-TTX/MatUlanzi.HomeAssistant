@@ -25,6 +25,7 @@
           '../../plugin/src/library.js',
           '../../plugin/src/ha-domains.js',
           '../../plugin/src/mdi-icons.js',
+          '../../plugin/src/target-context.js',
           '../../plugin/src/ha-links.js',
           '../../plugin/src/key-style.js',
           '../../plugin/src/key-renderer.js',
@@ -147,6 +148,24 @@
                     <option value="toggle" data-localize>Button (switches)</option>
                     <option value="info" data-localize>Info (display only)</option>
                     <option value="open" data-localize>Open (jumps to Home Assistant)</option>
+                    <option value="service" data-localize>Service call (any HA service)</option>
+                    <option value="step" data-localize>Step (adjust up or down)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label data-localize>Acts on</label>
+                  <select name="target_mode">
+                    <option value="fixed" data-localize>Its own entity</option>
+                    <option value="context" data-localize>The device last picked (context)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label data-localize>Long press</label>
+                  <select name="long_press">
+                    <option value="identify" data-localize>Identify (flash the device)</option>
+                    <option value="target" data-localize>Remember as context device</option>
+                    <option value="open" data-localize>Open in Home Assistant</option>
+                    <option value="none" data-localize>Do nothing</option>
                   </select>
                 </div>
               </div>
@@ -186,6 +205,36 @@
                   <input type="text" name="open_url" placeholder="https://…" />
                 </div>
                 <p class="hint" id="open-preview"></p>
+              </div>
+
+              <!-- Only for the "service" type: any Home Assistant service. -->
+              <div class="hidden" id="service-fields">
+                <div class="grid-2">
+                  <div class="field">
+                    <label data-localize>Domain</label>
+                    <input type="text" name="service_domain" placeholder="climate" />
+                  </div>
+                  <div class="field">
+                    <label data-localize>Service</label>
+                    <input type="text" name="service_name" placeholder="set_hvac_mode" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label data-localize>Data (JSON)</label>
+                  <textarea name="service_data" spellcheck="false" placeholder='{"hvac_mode": "cool"}'></textarea>
+                  <p class="hint" id="service-hint" data-localize="hint_service">
+                    The chosen entity is sent as the target. Leave empty for services that take none.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Only for the "step" type: a relative nudge, like a dial click. -->
+              <div class="field hidden" id="step-field">
+                <label data-localize>Step by</label>
+                <input type="number" name="step_amount" step="0.5" placeholder="1" />
+                <p class="hint" data-localize="hint_step">
+                  Degrees for climate, percent for light, cover, fan and volume. Negative goes down.
+                </p>
               </div>
 
               <div class="field">

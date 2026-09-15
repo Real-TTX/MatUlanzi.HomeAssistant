@@ -27,6 +27,8 @@
       this.getLibrary = deps.library;
       this.renderer = deps.renderer;
       this.i18n = deps.i18n;
+      // Shared by every key: the device a context key currently follows.
+      this.targets = deps.targets || null;
       this._log = deps.log || function () {};
 
       this.settings = {};
@@ -79,7 +81,18 @@
     /** True when this key cares about the given change. */
     watches(connectionId, entityId) {
       const def = this.definition();
-      if (!def || def.entityIds.indexOf(entityId) === -1) return false;
+      if (!def) return false;
+
+      // A context key has no entity of its own, so it watches whatever it
+      // currently follows.
+      if (def.targetMode === 'context') {
+        const target = this.effectiveTarget(def);
+        if (!target || target.entityId !== entityId) return false;
+        const entry = this.targetConnection(target, def);
+        return Boolean(entry) && entry.id === connectionId;
+      }
+
+      if (def.entityIds.indexOf(entityId) === -1) return false;
       const entry = this.connection(def);
       return Boolean(entry) && entry.id === connectionId;
     }
@@ -126,15 +139,29 @@
       const def = this.definition();
 
       if (pressDurationMs > LONG_PRESS_MS) {
-        this.identify(def);
+        this.handleLongPress(def);
         return;
       }
-      // Checked before the entity guard: opening a dashboard or a room needs
-      // no entity at all.
+
+      // These run before the entity guard on purpose: a dashboard link, a
+      // notify service and a context key all work without an entity of their own.
       if (def && def.type === 'open') {
         this.openInHomeAssistant(def);
         return;
       }
+      if (def && def.type === 'service') {
+        await this.callConfiguredService(def);
+        return;
+      }
+      if (def && def.type === 'step') {
+        await this.stepTarget(def);
+        return;
+      }
+      if (def && def.targetMode === 'context') {
+        await this.toggleContextTarget(def);
+        return;
+      }
+
       if (!def || !def.entityIds.length) {
         this.$UD.toast(this.i18n.t('No button'));
         return;
@@ -199,6 +226,180 @@
       }
       this._log('[key] opening ' + url);
       this.$UD.openUrl(url, false, null);
+    }
+
+    /**
+     * The entity this key acts on right now.
+     *
+     * A "context" key has no entity of its own: it follows whatever device was
+     * last picked elsewhere, which is how one control page can serve every
+     * thermostat instead of one page per device.
+     *
+     * @returns {{entityId:string, connectionId:string, name:string}|null}
+     */
+    effectiveTarget(definition) {
+      const def = definition || this.definition();
+      if (!def) return null;
+
+      if (def.targetMode === 'context') {
+        const target = this.targets ? this.targets.get() : null;
+        if (!target) return null;
+        return {
+          entityId: target.entityId,
+          connectionId: target.connectionId || def.connection,
+          name: target.name || target.entityId
+        };
+      }
+
+      if (!def.entityIds.length) return null;
+      return { entityId: def.entityIds[0], connectionId: def.connection, name: def.name || '' };
+    }
+
+    /** Connection for a target, which may differ from the button's own. */
+    targetConnection(target, definition) {
+      const def = definition || this.definition();
+      return this.pool.get(target && target.connectionId ? target.connectionId : def && def.connection);
+    }
+
+    /** Calls the service the button was configured with. */
+    async callConfiguredService(def) {
+      const spec = def.service || {};
+      if (!spec.domain || !spec.name) {
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(this.i18n.t('No service configured'));
+        return;
+      }
+
+      let data = {};
+      if (String(spec.data || '').trim()) {
+        try {
+          data = JSON.parse(spec.data);
+        } catch (err) {
+          // A typo in the JSON must say so instead of silently sending nothing.
+          this.$UD.showAlert(this.context);
+          this.$UD.toast(this.i18n.t('Service data is not valid JSON'));
+          return;
+        }
+      }
+
+      const target = this.effectiveTarget(def);
+      const entry = this.targetConnection(target, def) || this.connection(def);
+      if (!entry || !entry.client.isOnline) {
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(this.i18n.t('Offline'));
+        return;
+      }
+
+      // The entity is optional here: notify.* and script.* take none, while
+      // climate.set_hvac_mode wants one. Whatever the key points at wins.
+      const scope = target && target.entityId ? { entity_id: target.entityId } : null;
+
+      await this._withBusy(async () => {
+        await entry.client.callService(spec.domain, spec.name, data, scope);
+      }, def);
+    }
+
+    /** Nudges the target up or down — the keypad stand-in for a rotary dial. */
+    async stepTarget(def) {
+      const target = this.effectiveTarget(def);
+      if (!target) {
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(this.i18n.t('No target — long-press a device first'));
+        return;
+      }
+
+      const entry = this.targetConnection(target, def);
+      if (!entry || !entry.client.isOnline) {
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(this.i18n.t('Offline'));
+        return;
+      }
+
+      const plan = global.HaDomains.stepPlan(
+        target.entityId,
+        entry.client.getState(target.entityId),
+        def.stepAmount
+      );
+      if (!plan) {
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(this.i18n.t('Cannot be adjusted'));
+        return;
+      }
+
+      await this._withBusy(async () => {
+        await entry.client.callService(plan.domain, plan.service, plan.data, {
+          entity_id: target.entityId
+        });
+      }, def);
+    }
+
+    /** Remembers this key's entity as the target every context key follows. */
+    rememberTarget(def) {
+      const entityId = def.entityIds[0];
+      if (!entityId || !this.targets) {
+        this.$UD.toast(this.i18n.t('Nothing to remember'));
+        return;
+      }
+      const entry = this.connection(def);
+      const record = entry ? entry.registry.get(entityId) : null;
+      this.targets.set(entityId, def.connection, def.label || def.name || (record && record.name) || entityId);
+      this.$UD.toast(this.i18n.t('Target set'));
+    }
+
+    /** Shared busy/repaint/error handling for the service-calling paths. */
+    async _withBusy(work, def) {
+      this.busy = true;
+      this.render();
+      try {
+        await work();
+      } catch (err) {
+        this._log('[key] ' + ((def && def.name) || this.context) + ' failed: ' + err.message);
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(err.message);
+      } finally {
+        this.busy = false;
+        this.render();
+      }
+    }
+
+    /** What a long press does is configurable per button. */
+    handleLongPress(def) {
+      const what = (def && def.longPress) || 'identify';
+      if (what === 'none') return;
+      if (what === 'target') {
+        this.rememberTarget(def);
+        return;
+      }
+      if (what === 'open') {
+        this.openInHomeAssistant(def);
+        return;
+      }
+      this.identify(def);
+    }
+
+    /** A context key without its own entity still toggles what it follows. */
+    async toggleContextTarget(def) {
+      const target = this.effectiveTarget(def);
+      if (!target) {
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(this.i18n.t('No target — long-press a device first'));
+        return;
+      }
+      const entry = this.targetConnection(target, def);
+      if (!entry || !entry.client.isOnline) {
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(this.i18n.t('Offline'));
+        return;
+      }
+      const call = global.HaDomains.pressService(
+        target.entityId,
+        entry.client.getState(target.entityId)
+      );
+      await this._withBusy(async () => {
+        await entry.client.callService(call.domain, call.service, call.data, {
+          entity_id: target.entityId
+        });
+      }, def);
     }
 
     /** Long press: say out loud what sits on this key. */
@@ -317,12 +518,25 @@
         return { ctx: { name: t('No button'), value: '?' }, unavailable: true };
       }
 
-      // An 'open' key pointing at a room or dashboard has no entity on purpose.
-      if (!def.entityIds.length && def.type === 'open') {
+      // An 'open' key pointing at a room or dashboard has no entity on purpose,
+      // and a service key may target nothing at all (notify.*, script.*).
+      if (!def.entityIds.length && (def.type === 'open' || def.type === 'service')) {
         return {
           ctx: { name: def.label || def.name || t('Open'), value: '' },
           unavailable: false
         };
+      }
+
+      // Context keys show what they follow — or say that they follow nothing.
+      if (def.targetMode === 'context') {
+        const target = this.effectiveTarget(def);
+        if (!target) {
+          return {
+            ctx: { name: def.label || def.name || t('No target'), value: '—' },
+            unavailable: true
+          };
+        }
+        return this._viewFor(def, target.entityId, this.targetConnection(target, def), target.name);
       }
 
       // A button that exists but has no entity is a configuration mistake. Show
@@ -334,10 +548,18 @@
         };
       }
 
-      const entry = this.connection(def);
+      return this._viewFor(def, def.entityIds[0], this.connection(def));
+    }
+
+    /**
+     * Renders one entity, whether it is the button’s own or the device a
+     * context key currently follows.
+     */
+    _viewFor(def, primary, entry, nameOverride) {
+      const t = (key) => this.i18n.t(key);
       const domains = global.HaDomains;
-      const isGroup = def.entityIds.length > 1;
-      const primary = def.entityIds[0];
+      // A context key renders exactly the one device it follows, never a group.
+      const isGroup = def.targetMode !== "context" && def.entityIds.length > 1;
       const record = entry ? entry.registry.get(primary) : null;
       const stateObj = entry ? entry.client.getState(primary) : null;
       const attributes = (stateObj && stateObj.attributes) || {};
@@ -352,6 +574,7 @@
         // the designer, and entity names are often useless on a key (a cover
         // called "Büro" in a room called "Büro").
         name:
+          nameOverride ||
           def.label ||
           def.name ||
           (record && record.name) ||
