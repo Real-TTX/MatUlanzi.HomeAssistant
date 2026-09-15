@@ -194,6 +194,13 @@
     "Speed": "Stufe",
     "Value": "Wert",
     "Title": "Titel",
-    "Message": "Nachricht"
+    "Message": "Nachricht",
+    "Actions": "Aktionen",
+    "hint_actions": "Jede Zeile sagt, wann sie läuft, auf welche Entität und was aufgerufen wird. Der Reihe nach.",
+    "No actions yet — the button behaves as before.": "Noch keine Aktion — der Button verhält sich wie bisher.",
+    "Short press": "Kurzer Druck",
+    "Pick an action": "Aktion wählen",
+    "Remove this action": "Diese Aktion entfernen",
+    "Some fields of this service are only reachable through the JSON below.": "Einige Felder dieses Dienstes sind nur über das JSON unten erreichbar."
   }
 }

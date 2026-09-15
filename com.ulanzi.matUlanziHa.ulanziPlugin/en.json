@@ -191,6 +191,13 @@
     "Speed": "Speed",
     "Value": "Value",
     "Title": "Title",
-    "Message": "Message"
+    "Message": "Message",
+    "Actions": "Actions",
+    "hint_actions": "Each row says when it runs, on which entity, and what to call. Rows run in order.",
+    "No actions yet — the button behaves as before.": "No actions yet — the button behaves as before.",
+    "Short press": "Short press",
+    "Pick an action": "Pick an action",
+    "Remove this action": "Remove this action",
+    "Some fields of this service are only reachable through the JSON below.": "Some fields of this service are only reachable through the JSON below."
   }
 }

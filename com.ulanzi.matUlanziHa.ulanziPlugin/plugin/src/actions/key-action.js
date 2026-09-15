@@ -151,6 +151,8 @@
      * another button from the library.
      */
     async runDefinition(def) {
+      // An explicit action list wins over everything the older, fixed fields do.
+      if (await this.runActions(def, 'press')) return;
 
       // These run before the entity guard on purpose: a dashboard link, a
       // notify service and a context key all work without an entity of their own.
@@ -403,8 +405,57 @@
       }
     }
 
+    /**
+     * Runs the button's own action list for one trigger.
+     *
+     * @returns {Promise<boolean>} false when the button has no action for this
+     *          trigger, which lets the older, simpler behaviour take over.
+     */
+    async runActions(def, trigger) {
+      const liste = global.actionsFor(def, trigger);
+      if (!liste.length) return false;
+
+      const kontext = this.effectiveTarget(def);
+      const entry = this.targetConnection(kontext, def) || this.connection(def);
+      if (!entry || !entry.client.isOnline) {
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(this.i18n.t('Offline'));
+        return true;
+      }
+
+      await this._withBusy(async () => {
+        for (const action of liste) {
+          if (!action.domain || !action.service) continue;
+
+          const parsed = global.SwitchPlan.parseData(action.data);
+          if (parsed.error) {
+            // Naming the action beats a generic "invalid JSON" on a deck.
+            this.$UD.toast(
+              (action.domain || '') + '.' + (action.service || '') + ': ' + this.i18n.t('Data is not valid JSON')
+            );
+            continue;
+          }
+
+          const ziele = global.entitiesForAction(
+            def,
+            action,
+            kontext ? kontext.entityId : ''
+          );
+
+          // Services like notify.* take no entity at all; sending an empty
+          // target would make Home Assistant reject the call.
+          const scope = ziele.length ? { entity_id: ziele } : null;
+          await entry.client.callService(action.domain, action.service, parsed.data || {}, scope);
+        }
+      }, def);
+
+      return true;
+    }
+
     /** What a long press does is configurable per button. */
     async handleLongPress(def) {
+      if (await this.runActions(def, 'long')) return;
+
       const what = (def && def.longPress) || 'identify';
       if (what === 'none') return;
       if (what === 'target') {

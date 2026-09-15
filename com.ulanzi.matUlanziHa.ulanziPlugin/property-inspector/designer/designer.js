@@ -837,6 +837,7 @@
     fields.show_bar.checked = String(style.show_bar) !== '0';
     fields.html.value = style.html || '';
 
+    renderActionList(entry);
     renderSwitchEditor(entry);
     applyModeVisibility(style.mode);
     applyTypeVisibility(fields.type.value);
@@ -1266,6 +1267,49 @@
 
   /** One catalogue per connection, fetched once — services rarely change. */
   const ladeDienste = global.HaServices.loader({ log: () => {} });
+
+  /**
+   * The action list owns its own rows; the designer only tells it which button
+   * it is editing and takes the result back.
+   */
+  let aktionsListe = null;
+
+  function renderActionList(entry) {
+    const host = el('action-list');
+    if (!host) return;
+
+    if (!aktionsListe) {
+      aktionsListe = new global.ActionList({
+        host: host,
+        t: t,
+        entitiesOf: () => {
+          const aktuell = library.button(selection.id);
+          return aktuell ? global.Library.entitiesOf(aktuell) : [];
+        },
+        labelOf: (entityId) => {
+          const aktuell = library.button(selection.id);
+          return aktuell ? entityLabel(aktuell, entityId) : entityId;
+        },
+        catalogue: () => {
+          const aktuell = library.button(selection.id);
+          const verbindung = pool.get(aktuell ? aktuell.connection : '') || pool.entries()[0];
+          return ladeDienste(verbindung);
+        },
+        renderFields: renderPresetFields,
+        collect: collectPresetValues,
+        merge: mergeIntoJson,
+        onChange: (actions) => {
+          if (!selection.id) return;
+          library.updateButton(selection.id, { actions: actions });
+          save();
+          renderPreview();
+        }
+      });
+    }
+
+    aktionsListe.set(entry.actions || []);
+  }
+
 
   /** Tells at a glance whether the JSON parses and what the key will send. */
   function applyServiceHint() {

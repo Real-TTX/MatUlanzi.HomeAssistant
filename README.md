@@ -109,6 +109,31 @@ sortiert (`DG › Dachboden`, `EG › Büro`, …). Gebaut wird die Adresse in
 **gar nichts** — weder relativ noch absolut, ohne Fehlermeldung. Deshalb ist
 jedes Ziel hier eine Remote-Adresse.
 
+### Aktionsliste: wann, worauf, was
+
+Ein Button trägt eine Liste von Aktionen statt fester Felder. Jede Zeile sagt,
+wann sie läuft, auf welche Entität, und welchen Dienst mit welchen Daten:
+
+```
+Kurzer Druck · Alle Entitäten          · light.turn_on   {"brightness_pct": 30}
+Kurzer Druck · SwitchBot Floor Lamp    · light.turn_on   {"rgb_color": [255,0,128]}
+Langer Druck · Alle Entitäten          · light.turn_off  { }
+```
+
+Damit sind „Longpress das, Shortpress dies" und „pro Lampe eine andere Farbe"
+dasselbe Werkzeug. Die Zeilen laufen der Reihe nach; eine Zeile ohne Entität
+trifft alle Entitäten des Buttons, und bei einer Kontext-Taste das Gerät, dem
+sie gerade folgt.
+
+**Alte Buttons bleiben unangetastet.** Eine leere Liste heißt: verhalte dich wie
+bisher. Deshalb war für den Umstieg keine Datenwanderung nötig — was gemessen
+auch so eintritt: mit einer Aktion nur auf langem Druck schaltet ein kurzer
+Druck weiterhin die ganze Gruppe über `homeassistant.turn_off`.
+
+Ungültiges JSON in einer Zeile überspringt nur diese Zeile und nennt sie beim
+Namen (`light.turn_on: Daten sind kein gültiges JSON`), statt den ganzen
+Tastendruck fallen zu lassen.
+
 ### Aktionen kommen aus Home Assistant selbst
 
 Eine handgepflegte Liste von Aktionen war ein Fehler: sie kannte für Rollos

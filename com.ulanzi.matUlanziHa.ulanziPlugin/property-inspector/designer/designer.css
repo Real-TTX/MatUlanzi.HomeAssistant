@@ -641,3 +641,49 @@ legend {
   font-size: 12px;
   color: #b9bdc4;
 }
+
+/* One action per row: when, on what, which service, then its own fields. */
+.ha-action {
+  border: 1px solid #3a3d43;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: #212429;
+}
+
+.ha-action-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.ha-action-remove {
+  width: 26px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  color: #d5d8dc;
+  cursor: pointer;
+}
+
+.ha-action-remove:hover {
+  border-color: #a8474a;
+  color: #ff8a80;
+}
+
+.ha-action-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ha-action-json {
+  width: 100%;
+  margin-top: 6px;
+  min-height: 34px;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+}

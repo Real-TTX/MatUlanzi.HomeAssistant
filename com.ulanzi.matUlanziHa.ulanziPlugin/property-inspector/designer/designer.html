@@ -35,6 +35,7 @@
           '../../plugin/src/i18n.js',
           '../../plugin/src/actions/key-action.js',
           '../common/color-controls.js',
+          'action-list.js',
           '../common/entity-picker.js'
         ];
         if (location.search.indexOf('preview=1') !== -1) {
@@ -295,6 +296,14 @@
                   A press switches the whole group: on when the key shows off, off otherwise.
                 </p>
               </div>
+            </fieldset>
+
+            <fieldset id="actions-section">
+              <legend data-localize>Actions</legend>
+              <p class="hint" data-localize="hint_actions">
+                Each row says when it runs, on which entity, and what to call. Rows run in order.
+              </p>
+              <div id="action-list"></div>
             </fieldset>
 
             <fieldset>

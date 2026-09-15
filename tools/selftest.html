@@ -452,6 +452,47 @@
         check('i18n de', new I18n('de_DE').t('On') === 'An');
         check('i18n Fallback en', new I18n('fr_FR').t('On') === 'On');
 
+        section('Aktionsliste: wann, worauf, was');
+        {
+          const lib = Library.parse({
+            connections: [{ id: 'c1', name: 'HA', url: 'http://ha:8123', token: 't' }],
+            buttons: [
+              {
+                id: 'b1', name: 'Gruppe', connection: 'c1',
+                entities: ['light.a', 'light.b'],
+                actions: [
+                  { id: 'a1', trigger: 'press', entity: '', domain: 'light', service: 'turn_on', data: '{"brightness_pct":30}' },
+                  { id: 'a2', trigger: 'press', entity: 'light.b', domain: 'light', service: 'turn_on', data: '{"rgb_color":[255,0,0]}' },
+                  { id: 'a3', trigger: 'long', entity: '', domain: 'light', service: 'turn_off', data: '' }
+                ]
+              },
+              { id: 'b2', name: 'Ohne', connection: 'c1', entities: ['switch.x'] }
+            ]
+          });
+
+          const def = lib.resolveKey({ button: 'b1' });
+          check('Aktionen kommen mit', def.actions.length === 3);
+
+          const kurz = actionsFor(def, 'press');
+          const lang = actionsFor(def, 'long');
+          check('kurzer Druck hat zwei Aktionen', kurz.length === 2);
+          check('langer Druck hat eine', lang.length === 1 && lang[0].service === 'turn_off');
+          check('Reihenfolge bleibt', kurz[0].id === 'a1' && kurz[1].id === 'a2');
+          check('ohne Angabe gilt kurzer Druck', actionsFor({ actions: [{ domain: 'x' }] }, 'press').length === 1);
+
+          check('Aktion ohne Entität trifft alle', JSON.stringify(entitiesForAction(def, kurz[0])) === '["light.a","light.b"]');
+          check('Aktion mit Entität trifft nur diese', JSON.stringify(entitiesForAction(def, kurz[1])) === '["light.b"]');
+          check(
+            'ohne eigene Entitäten greift das Kontext-Ziel',
+            JSON.stringify(entitiesForAction({ entityIds: [] }, { entity: '' }, 'climate.z')) === '["climate.z"]'
+          );
+          check('ganz ohne Ziel bleibt es leer', JSON.stringify(entitiesForAction({ entityIds: [] }, { entity: '' }, '')) === '[]');
+
+          const ohne = lib.resolveKey({ button: 'b2' });
+          check('ein Button ohne Liste hat eine leere', ohne.actions.length === 0);
+          check('und läuft damit ins alte Verhalten', actionsFor(ohne, 'press').length === 0);
+        }
+
         section('Dienste kommen aus Home Assistant selbst');
         {
           const hs = HaServices;

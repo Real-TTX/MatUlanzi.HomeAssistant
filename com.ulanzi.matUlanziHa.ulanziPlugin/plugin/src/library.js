@@ -34,6 +34,24 @@
    * keyed by uuid only, which makes stray writes easy. Returns true when the
    * write may go ahead.
    */
+  /** Actions of a button for one trigger, in the order they were added. */
+  function actionsFor(definition, trigger) {
+    const liste = (definition && definition.actions) || [];
+    const wanted = trigger === 'long' ? 'long' : 'press';
+    return liste.filter((action) => (action.trigger || 'press') === wanted);
+  }
+
+  /**
+   * Which entities one action touches: its own, or every entity the button
+   * carries when it does not name one.
+   */
+  function entitiesForAction(definition, action, fallback) {
+    if (action && action.entity) return [action.entity];
+    const eigene = (definition && definition.entityIds) || [];
+    if (eigene.length) return eigene;
+    return fallback ? [fallback] : [];
+  }
+
   function mayReplaceLibrary(next, previous) {
     const size = (blob) =>
       blob ? ((blob.buttons || []).length + (blob.connections || []).length) : 0;
@@ -231,6 +249,7 @@
           on_data: '',
           off_data: '',
           entity_actions: {},
+          actions: [],
           open_area: '',
           open_dashboard: '',
           open_url: '',
@@ -316,6 +335,9 @@
           onData: button.on_data || '',
           offData: button.off_data || '',
           entityActions: button.entity_actions || {},
+          // A list beats the old fixed pair: each entry says when it runs,
+          // on which entity, and which service with which data.
+          actions: Array.isArray(button.actions) ? button.actions : [],
           service: {
             domain: button.service_domain || '',
             name: button.service_name || '',
@@ -353,6 +375,7 @@
           onData: '',
           offData: '',
           entityActions: {},
+          actions: [],
           service: { domain: '', name: '', data: '' },
           stepAmount: 0,
           open: { target: 'entity', entityId: keySettings.entity_id, area: '', dashboard: '', url: '' },
@@ -368,6 +391,8 @@
 
   global.LIBRARY_CONTEXT = LIBRARY_CONTEXT;
   global.mayReplaceLibrary = mayReplaceLibrary;
+  global.actionsFor = actionsFor;
+  global.entitiesForAction = entitiesForAction;
   global.Library = Library;
   global.BUTTON_TYPES = BUTTON_TYPES;
   global.GROUP_RULES = GROUP_RULES;
