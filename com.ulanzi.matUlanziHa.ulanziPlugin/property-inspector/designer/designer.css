@@ -551,3 +551,93 @@ legend {
 .hint.bad {
   color: #ff8a80;
 }
+
+/*
+  Visual controls: every slider carries the colour it produces in its own track,
+  so a lamp setting can be judged without translating numbers in your head.
+*/
+.ha-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 14px;
+  border-radius: 7px;
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  outline: none;
+  cursor: pointer;
+}
+
+.ha-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  /* The thumb sits on top of the colour it picks, so it needs its own outline. */
+  border: 2px solid #14161a;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+.ha-color {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ha-color-head {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+
+.ha-color-preview {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 8px;
+  border: 1px solid #3a3d43;
+}
+
+.ha-color-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ha-swatches {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.ha-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 5px;
+  border: 1px solid #3a3d43;
+  cursor: pointer;
+}
+
+.ha-swatch:hover {
+  border-color: #8b9099;
+}
+
+.ha-visual {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ha-readout {
+  min-width: 56px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: #b9bdc4;
+}

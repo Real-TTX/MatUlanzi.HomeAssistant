@@ -8,6 +8,7 @@
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-registry.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-domains.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/mdi-icons.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/property-inspector/common/color-controls.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/action-presets.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/switch-plan.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/target-context.js"></script>
@@ -449,6 +450,33 @@
         check('WS-URL aus nacktem Host', haToWebSocketUrl('ha.local:8123') === 'ws://ha.local:8123/api/websocket');
         check('i18n de', new I18n('de_DE').t('On') === 'An');
         check('i18n Fallback en', new I18n('fr_FR').t('On') === 'On');
+
+        section('Farbregler: die Mathematik dahinter');
+        {
+          const cc = ColorControls;
+
+          check('2000 K ist warm (rot vor blau)', cc.kelvinToRgb(2000)[0] > cc.kelvinToRgb(2000)[2] + 100, JSON.stringify(cc.kelvinToRgb(2000)));
+          check('6500 K ist kühl (blau holt auf)', cc.kelvinToRgb(6500)[2] > cc.kelvinToRgb(2700)[2] + 60);
+          check('Rot bleibt in Grenzen', cc.kelvinToRgb(40000).every((v) => v >= 0 && v <= 255));
+          check('absurd kalte Werte kippen nicht', cc.kelvinToRgb(-5).every((v) => v >= 0 && v <= 255));
+
+          check('reines Rot aus HSV', JSON.stringify(cc.hsvToRgb(0, 100, 100)) === '[255,0,0]');
+          check('reines Grün aus HSV', JSON.stringify(cc.hsvToRgb(120, 100, 100)) === '[0,255,0]');
+          check('reines Blau aus HSV', JSON.stringify(cc.hsvToRgb(240, 100, 100)) === '[0,0,255]');
+          check('ohne Sättigung wird es grau', JSON.stringify(cc.hsvToRgb(200, 0, 50)) === '[128,128,128]', JSON.stringify(cc.hsvToRgb(200, 0, 50)));
+          check('ohne Helligkeit wird es schwarz', JSON.stringify(cc.hsvToRgb(200, 100, 0)) === '[0,0,0]');
+          check('Hue über 360 läuft rund', JSON.stringify(cc.hsvToRgb(480, 100, 100)) === JSON.stringify(cc.hsvToRgb(120, 100, 100)));
+
+          check('RGB zurück nach HSV', JSON.stringify(cc.rgbToHsv([255, 0, 0])) === '[0,100,100]');
+          check('Grau hat keine Sättigung', cc.rgbToHsv([128, 128, 128])[1] === 0);
+          const rund = cc.hsvToRgb.apply(null, cc.rgbToHsv([200, 120, 40]));
+          check('Hin und zurück bleibt nah dran', Math.abs(rund[0] - 200) <= 2 && Math.abs(rund[1] - 120) <= 2 && Math.abs(rund[2] - 40) <= 2, JSON.stringify(rund));
+
+          const verlauf = cc.kelvinGradient(2000, 6500, 4);
+          check('Farbverlauf hat Stützstellen', (verlauf.match(/rgb\(/g) || []).length === 5, verlauf.slice(0, 40));
+          check('Helligkeitsverlauf beginnt schwarz', cc.brightnessGradient([255, 0, 0]).indexOf('#000 0%') !== -1);
+          check('Vorschlagsfarben vorhanden', cc.swatches.length >= 5 && cc.swatches[0].rgb.length === 3);
+        }
 
         section('Standard-Aktionen statt JSON tippen');
         {

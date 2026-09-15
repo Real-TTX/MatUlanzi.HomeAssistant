@@ -1067,62 +1067,115 @@
       label.textContent = t(field.label) + (field.unit ? ' (' + field.unit + ')' : '');
       wrap.appendChild(label);
 
-      let input;
-      if (field.type === 'select') {
+      const controls = global.ColorControls;
+      const current = values[field.key];
+      let steuerung = null;
+      let input = null;
+
+      if (field.type === 'color') {
+        steuerung = controls.colorField({ onChange: onChange });
+        // A colour has no empty state, so an untouched field must not quietly
+        // become whatever the sliders happen to start at.
+        if (current) steuerung.set(hexZuRgb(current));
+        else steuerung.node.dataset.unset = '1';
+      } else if (field.key === 'brightness_pct') {
+        steuerung = controls.brightnessField({
+          value: current,
+          onChange: onChange,
+          // The track shows the colour picked right next to it.
+          colorOf: () => aktuelleFarbe(host)
+        });
+        if (current === undefined) steuerung.node.dataset.unset = '1';
+      } else if (field.type === 'kelvin' || field.key === 'color_temp_kelvin') {
+        steuerung = controls.kelvinField({ value: current, min: field.min, max: field.max, onChange: onChange });
+        if (current === undefined) steuerung.node.dataset.unset = '1';
+      } else if (field.type === 'percent' || field.type === 'fraction') {
+        steuerung = controls.percentField({ value: current, onChange: onChange });
+        if (current === undefined) steuerung.node.dataset.unset = '1';
+      } else if (field.type === 'select') {
         input = doc.createElement('select');
         for (const option of [''].concat(field.options)) {
           const node = doc.createElement('option');
           node.value = option;
-          node.textContent = option || '\u2014';
+          node.textContent = option || '—';
           input.appendChild(node);
         }
-      } else if (field.type === 'color') {
-        input = doc.createElement('input');
-        input.type = 'color';
       } else if (field.type === 'text') {
         input = doc.createElement('input');
         input.type = 'text';
       } else {
         input = doc.createElement('input');
         input.type = 'number';
-        if (field.type === 'percent' || field.type === 'fraction') {
-          input.min = 0;
-          input.max = 100;
-          input.step = 1;
-        } else {
-          if (field.min !== undefined) input.min = field.min;
-          if (field.max !== undefined) input.max = field.max;
-          if (field.step !== undefined) input.step = field.step;
-        }
+        if (field.min !== undefined) input.min = field.min;
+        if (field.max !== undefined) input.max = field.max;
+        if (field.step !== undefined) input.step = field.step;
       }
 
-      const current = values[field.key];
+      if (steuerung) {
+        steuerung.node.dataset.presetKey = field.key;
+        steuerung.node.__lesen = steuerung.get;
+        if (steuerung.refresh) steuerung.node.__auffrischen = steuerung.refresh;
+        steuerung.node.addEventListener('input', () => {
+          delete steuerung.node.dataset.unset;
+        }, true);
+        steuerung.node.addEventListener('click', () => {
+          delete steuerung.node.dataset.unset;
+        }, true);
+        wrap.appendChild(steuerung.node);
+        host.appendChild(wrap);
+        continue;
+      }
+
       input.value = current === undefined ? '' : current;
       input.dataset.presetKey = field.key;
-
-      // A colour input has no empty state, so an unset colour must not silently
-      // become black the moment the fields are drawn.
-      if (field.type === 'color' && !current) input.dataset.unset = '1';
-
-      input.addEventListener('input', () => {
-        delete input.dataset.unset;
-        onChange();
-      });
+      input.addEventListener('input', onChange);
       input.addEventListener('change', onChange);
-
       wrap.appendChild(input);
       host.appendChild(wrap);
+    }
+
+    // The brightness track shows the colour chosen next to it, but that
+    // control is built afterwards — so paint it once everything exists, and
+    // again whenever the colour moves.
+    koppleHelligkeitAnFarbe(host);
+  }
+
+  function koppleHelligkeitAnFarbe(host) {
+    const hell = host.querySelector('[data-preset-key="brightness_pct"]');
+    if (!hell || !hell.__auffrischen) return;
+    hell.__auffrischen();
+    const farbe = host.querySelector('[data-preset-key="rgb_color"]');
+    if (!farbe) return;
+    for (const ereignis of ['input', 'click']) {
+      farbe.addEventListener(ereignis, () => hell.__auffrischen(), true);
     }
   }
 
   /** Reads the rendered fields back out, skipping the ones never touched. */
   function collectPresetValues(host) {
     const values = {};
-    for (const input of host.querySelectorAll('[data-preset-key]')) {
-      if (input.dataset.unset) continue;
-      values[input.dataset.presetKey] = input.value;
+    for (const node of host.querySelectorAll('[data-preset-key]')) {
+      if (node.dataset.unset) continue;
+      // A visual control knows its own value; a plain input has .value.
+      const wert = node.__lesen ? node.__lesen() : node.value;
+      values[node.dataset.presetKey] = Array.isArray(wert) ? controlsZuHex(wert) : wert;
     }
     return values;
+  }
+
+  /** The colour control hands back rgb; the preset catalogue expects hex. */
+  function controlsZuHex(rgb) {
+    return global.ActionPresets.rgbToHex(rgb);
+  }
+
+  function hexZuRgb(hex) {
+    return global.ActionPresets.hexToRgb(hex);
+  }
+
+  /** Colour currently chosen next to a brightness slider, for its gradient. */
+  function aktuelleFarbe(host) {
+    const node = host.querySelector('[data-preset-key="rgb_color"]');
+    return node && node.__lesen ? node.__lesen() : null;
   }
 
   /** Merges preset values into existing JSON without losing unknown keys. */
