@@ -157,6 +157,10 @@
     "No target": "No target",
     "Cannot be adjusted": "Cannot be adjusted",
     "Nothing to remember": "Nothing to remember",
-    "Target set": "Target set"
+    "Target set": "Target set",
+    "Run another button": "Run another button",
+    "Button for the long press": "Button for the long press",
+    "hint_long_press": "Runs that button’s press action — a service call, a step, anything.",
+    "Long press has no button": "Long press has no button"
   }
 }

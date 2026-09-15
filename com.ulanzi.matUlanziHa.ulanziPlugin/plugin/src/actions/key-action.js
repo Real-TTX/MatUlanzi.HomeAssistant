@@ -139,9 +139,18 @@
       const def = this.definition();
 
       if (pressDurationMs > LONG_PRESS_MS) {
-        this.handleLongPress(def);
+        await this.handleLongPress(def);
         return;
       }
+      await this.runDefinition(def);
+    }
+
+    /**
+     * Does what a button says, for any definition — not only this key’s own.
+     * That is what makes a long press freely configurable: it simply runs
+     * another button from the library.
+     */
+    async runDefinition(def) {
 
       // These run before the entity guard on purpose: a dashboard link, a
       // notify service and a context key all work without an entity of their own.
@@ -363,7 +372,7 @@
     }
 
     /** What a long press does is configurable per button. */
-    handleLongPress(def) {
+    async handleLongPress(def) {
       const what = (def && def.longPress) || 'identify';
       if (what === 'none') return;
       if (what === 'target') {
@@ -374,6 +383,20 @@
         this.openInHomeAssistant(def);
         return;
       }
+
+      // The open-ended option: run any other button. Only its press behaviour,
+      // never its long press, so two buttons pointing at each other cannot loop.
+      if (what === 'button') {
+        const other = this.getLibrary().resolveKey({ button: def.longPressButton });
+        if (!other) {
+          this.$UD.showAlert(this.context);
+          this.$UD.toast(this.i18n.t('Long press has no button'));
+          return;
+        }
+        await this.runDefinition(other);
+        return;
+      }
+
       this.identify(def);
     }
 

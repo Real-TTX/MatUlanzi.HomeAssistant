@@ -148,7 +148,17 @@ Seite 2:  −1°   COOL   +1°   Info        → wirken alle auf climate.buero
 ```
 
 Was ein langer Druck tut, ist pro Button einstellbar: identifizieren, als
-Kontext-Gerät merken, in Home Assistant öffnen oder nichts.
+Kontext-Gerät merken, in Home Assistant öffnen, nichts — oder **einen beliebigen
+anderen Button aus der Bibliothek ausführen**. Damit ist der lange Druck frei
+definierbar, ohne eine zweite Konfigurationssprache: er kann alles, was ein
+Button kann. Ausgeführt wird nur dessen *Druck*-Aktion, nie wieder ein langer
+Druck, damit zwei Buttons sich nicht gegenseitig aufrufen können.
+
+Ein Kontextmenü an der Maus ist dagegen nicht möglich: die Plugin-Seite kennt
+die Mausposition nicht und kann kein Betriebssystem-Menü öffnen. `openView`
+beachtet zwar übergebene Koordinaten (angefordert 120,90 → Fenster bei 112,90),
+ignoriert aber die Wunschgröße — 420×320 angefordert, 1256×943 bekommen. Ein
+kleines Menü-Fenster lässt sich damit nicht zuverlässig bauen.
 
 Das ist bewusst die Übersetzung des „Smart Dialer"-Musters anderer Plugins auf
 ein Tastenfeld. Der echte Dialer braucht einen Encoder; dieses Gerät ist laut

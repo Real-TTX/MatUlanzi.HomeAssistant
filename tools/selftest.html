@@ -487,6 +487,38 @@
           check('Schalter bleibt generisch', HaDomains.pressService('switch.x', { state: 'on' }).domain === 'homeassistant');
         }
 
+        section('Langer Druck führt einen anderen Button aus');
+        {
+          const lib = Library.parse({
+            connections: [{ id: 'c1', name: 'HA', url: 'http://ha:8123', token: 't' }],
+            buttons: [
+              { id: 'b-licht', name: 'Licht', connection: 'c1', entities: ['light.x'], type: 'toggle' },
+              {
+                id: 'b-kalt', name: 'Kühlen', connection: 'c1', entities: ['climate.x'], type: 'service',
+                service_domain: 'climate', service_name: 'set_hvac_mode', service_data: '{"hvac_mode":"cool"}'
+              },
+              {
+                id: 'b-haupt', name: 'Haupt', connection: 'c1', entities: ['light.x'], type: 'toggle',
+                long_press: 'button', long_press_button: 'b-kalt'
+              }
+            ]
+          });
+
+          const haupt = lib.resolveKey({ button: 'b-haupt' });
+          check('langer Druck ist auf "Button" gestellt', haupt.longPress === 'button');
+          check('und kennt sein Ziel', haupt.longPressButton === 'b-kalt');
+
+          const ziel = lib.resolveKey({ button: haupt.longPressButton });
+          check('das Ziel lässt sich auflösen', Boolean(ziel));
+          check('und ist der Dienst-Button', ziel.type === 'service' && ziel.service.name === 'set_hvac_mode');
+          check('mit seinen Daten', ziel.service.data === '{"hvac_mode":"cool"}');
+
+          const ohne = lib.resolveKey({ button: 'b-licht' });
+          check('Vorgabe bleibt identifizieren', ohne.longPress === 'identify');
+          check('ohne hinterlegten Button', ohne.longPressButton === '');
+          check('ein leerer Verweis löst nichts auf', lib.resolveKey({ button: '' }) === null);
+        }
+
         section('Kontext-Ziel (folgt dem zuletzt gewählten Gerät)');
         {
           let jetzt = 1000;

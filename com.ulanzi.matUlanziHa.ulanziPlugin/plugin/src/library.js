@@ -227,6 +227,7 @@
           step_amount: 1,
           target_mode: 'fixed',
           long_press: 'identify',
+          long_press_button: '',
           open_area: '',
           open_dashboard: '',
           open_url: '',
@@ -307,6 +308,7 @@
           // Follows the device picked on another key instead of a fixed one.
           targetMode: button.target_mode === 'context' ? 'context' : 'fixed',
           longPress: button.long_press || 'identify',
+          longPressButton: button.long_press_button || '',
           service: {
             domain: button.service_domain || '',
             name: button.service_name || '',
@@ -340,6 +342,7 @@
           groupRule: GROUP_RULES.any_on,
           targetMode: 'fixed',
           longPress: 'identify',
+          longPressButton: '',
           service: { domain: '', name: '', data: '' },
           stepAmount: 0,
           open: { target: 'entity', entityId: keySettings.entity_id, area: '', dashboard: '', url: '' },

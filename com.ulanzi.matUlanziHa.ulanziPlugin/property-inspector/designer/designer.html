@@ -165,9 +165,18 @@
                     <option value="identify" data-localize>Identify (flash the device)</option>
                     <option value="target" data-localize>Remember as context device</option>
                     <option value="open" data-localize>Open in Home Assistant</option>
+                    <option value="button" data-localize>Run another button</option>
                     <option value="none" data-localize>Do nothing</option>
                   </select>
                 </div>
+              </div>
+
+              <div class="field hidden" id="long-press-button-field">
+                <label data-localize>Button for the long press</label>
+                <select name="long_press_button"></select>
+                <p class="hint" data-localize="hint_long_press">
+                  Runs that button’s press action — a service call, a step, anything.
+                </p>
               </div>
 
               <div class="field hidden" id="interval-field">

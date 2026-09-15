@@ -160,6 +160,10 @@
     "No target": "Kein Ziel",
     "Cannot be adjusted": "Lässt sich nicht verstellen",
     "Nothing to remember": "Nichts zu merken",
-    "Target set": "Ziel gesetzt"
+    "Target set": "Ziel gesetzt",
+    "Run another button": "Anderen Button ausführen",
+    "Button for the long press": "Button für den langen Druck",
+    "hint_long_press": "Führt die Druck-Aktion dieses Buttons aus — Dienst-Aufruf, Schritt, alles.",
+    "Long press has no button": "Langer Druck hat keinen Button hinterlegt"
   }
 }

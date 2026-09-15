@@ -779,6 +779,13 @@
     fields.step_amount.value = entry.step_amount === undefined ? 1 : entry.step_amount;
     fields.target_mode.value = entry.target_mode === 'context' ? 'context' : 'fixed';
     fields.long_press.value = entry.long_press || 'identify';
+    fillOptions(
+      fields.long_press_button,
+      [{ id: '', name: '— ' + t('No button') + ' —' }].concat(
+        library.sortedButtons().filter((other) => other.id !== entry.id)
+      )
+    );
+    fields.long_press_button.value = entry.long_press_button || '';
 
     fields.open_target.value = entry.open_target || 'entity';
     fields.open_dashboard.value = entry.open_dashboard || '';
@@ -859,6 +866,7 @@
       step_amount: Number(fields.step_amount.value) || 0,
       target_mode: fields.target_mode.value,
       long_press: fields.long_press.value,
+      long_press_button: fields.long_press_button.value,
       open_target: fields.open_target.value,
       open_area: fields.open_area.value,
       open_dashboard: fields.open_dashboard.value,
@@ -887,8 +895,18 @@
     el('open-fields').classList.toggle('hidden', type !== 'open');
     el('service-fields').classList.toggle('hidden', type !== 'service');
     el('step-field').classList.toggle('hidden', type !== 'step');
+    applyLongPressVisibility();
     if (type === 'open') applyOpenVisibility();
     if (type === 'service' || type === 'step') applyServiceHint();
+  }
+
+  /** The button picker only matters when the long press should run one. */
+  function applyLongPressVisibility() {
+    const fields = el('button-form').elements;
+    el('long-press-button-field').classList.toggle(
+      'hidden',
+      fields.long_press.value !== 'button'
+    );
   }
 
   /** Tells at a glance whether the JSON parses and what the key will send. */
