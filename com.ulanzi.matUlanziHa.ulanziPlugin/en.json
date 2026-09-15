@@ -161,6 +161,12 @@
     "Run another button": "Run another button",
     "Button for the long press": "Button for the long press",
     "hint_long_press": "Runs that button’s press action — a service call, a step, anything.",
-    "Long press has no button": "Long press has no button"
+    "Long press has no button": "Long press has no button",
+    "When switching": "When switching",
+    "All entities": "All entities",
+    "On (JSON)": "On (JSON)",
+    "Off (JSON)": "Off (JSON)",
+    "hint_switch": "Leave empty for a plain toggle. Per entity beats the setting for all.",
+    "Leave empty for a plain toggle. Per entity beats the setting for all.": "Leave empty for a plain toggle. Per entity beats the setting for all."
   }
 }

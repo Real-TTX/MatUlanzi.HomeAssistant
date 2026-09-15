@@ -8,6 +8,7 @@
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-registry.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-domains.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/mdi-icons.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/switch-plan.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/target-context.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-links.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/key-style.js"></script>
@@ -447,6 +448,46 @@
         check('WS-URL aus nacktem Host', haToWebSocketUrl('ha.local:8123') === 'ws://ha.local:8123/api/websocket');
         check('i18n de', new I18n('de_DE').t('On') === 'An');
         check('i18n Fallback en', new I18n('fr_FR').t('On') === 'On');
+
+        section('EIN mit Farbe: was genau gesendet wird');
+        {
+          const sp = SwitchPlan;
+
+          check('ohne Daten kein eigener Plan', sp.switchPlan('light.x', true, '') === null);
+          check('leerer Text zählt als ohne', sp.switchPlan('light.x', true, '   ') === null);
+
+          const an = sp.switchPlan('light.wz', true, '{"brightness_pct":60,"rgbw_color":[255,160,60,0]}');
+          check('Licht EIN wird zu light.turn_on', an.domain === 'light' && an.service === 'turn_on', JSON.stringify(an));
+          check('Farbe und Helligkeit reisen mit', an.data.brightness_pct === 60 && an.data.rgbw_color[0] === 255);
+
+          const aus = sp.switchPlan('light.wz', false, '{"transition":2}');
+          check('Licht AUS wird zu light.turn_off', aus.service === 'turn_off' && aus.data.transition === 2);
+
+          check('Rollo EIN heißt open_cover', sp.switchPlan('cover.b', true, '{"position":50}').service === 'open_cover');
+          check('Rollo AUS heißt close_cover', sp.switchPlan('cover.b', false, '{"x":1}').service === 'close_cover');
+          check('Schloss EIN heißt lock', sp.switchPlan('lock.t', true, '{"code":"1"}').service === 'lock');
+          check('Szene bleibt turn_on', sp.switchPlan('scene.abend', false, '{"transition":1}').service === 'turn_on');
+          check('Skript bleibt turn_on', sp.switchPlan('script.gute_nacht', true, '{"variables":{}}').service === 'turn_on');
+
+          check('kaputtes JSON ergibt keinen Plan', sp.switchPlan('light.x', true, '{kaputt') === null);
+          check('und wird als Fehler gemeldet', Boolean(sp.parseData('{kaputt').error));
+          check('eine Liste ist kein Objekt', Boolean(sp.parseData('[1,2]').error));
+          check('gültiges JSON kommt durch', sp.parseData('{"a":1}').data.a === 1);
+
+          const def = {
+            onData: '{"brightness_pct":40}',
+            offData: '',
+            entityActions: { 'light.b': { on: '{"brightness_pct":100}', off: '' } }
+          };
+          check('eigene Daten der Entität schlagen die Vorgabe', sp.dataFor(def, 'light.b', true) === '{"brightness_pct":100}');
+          check('ohne eigene gilt die Vorgabe', sp.dataFor(def, 'light.a', true) === '{"brightness_pct":40}');
+          check('leere eigene fällt auf die Vorgabe zurück', sp.dataFor(def, 'light.b', false) === '');
+
+          check('Button mit Daten wird erkannt', sp.hasExtras(def) === true);
+          check('Button ohne Daten wird erkannt', sp.hasExtras({ onData: '', offData: '', entityActions: {} }) === false);
+          check('leere Eintraege zaehlen nicht', sp.hasExtras({ onData: ' ', offData: '', entityActions: { 'light.a': { on: '', off: '' } } }) === false);
+          check('nichts uebergeben ist auch nichts', sp.hasExtras(null) === false);
+        }
 
         section('Relative Schritte (Ersatz für den Drehknopf)');
         {

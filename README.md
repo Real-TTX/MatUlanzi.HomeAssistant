@@ -109,6 +109,32 @@ sortiert (`DG › Dachboden`, `EG › Büro`, …). Gebaut wird die Adresse in
 **gar nichts** — weder relativ noch absolut, ohne Fehlermeldung. Deshalb ist
 jedes Ziel hier eine Remote-Adresse.
 
+### Was „EIN" bedeuten soll
+
+Ein `toggle` kann keine Parameter tragen — deshalb sagt ein Button nicht nur,
+*dass* geschaltet wird, sondern auf Wunsch auch *wie*. Sobald etwas eingetragen
+ist, schickt die Taste statt eines Umschaltens ein ausdrückliches
+`turn_on`/`turn_off` in der Domain der Entität:
+
+```
+Beim Schalten:  [ Alle Entitäten ▾ ]
+EIN   {"brightness_pct": 15}
+AUS   {"transition": 2}
+
+Beim Schalten:  [ SwitchBot Floor Lamp • ▾ ]        ← eigene Daten
+EIN   {"brightness_pct": 40, "rgbw_color": [255,160,60,0]}
+```
+
+Die Einstellung pro Entität schlägt die für alle, ein `•` markiert die Entitäten
+mit eigenen Daten. So bekommt eine Gruppe aus drei Lampen eine gemeinsame
+Grundhelligkeit und trotzdem eine davon ihre eigene Farbe. Ungültiges JSON wird
+unter den Feldern benannt, samt Entität — ein Tippfehler darf nicht erst beim
+Drücken auffallen, wenn stillschweigend nichts passiert.
+
+Nicht-Standard-Richtungen sind berücksichtigt: `cover` wird `open_cover` /
+`close_cover`, `lock` wird `lock` / `unlock`, und `scene`, `script`, `button`,
+`automation` behalten ihren einen sinnvollen Dienst.
+
 ### Typ „Dienst-Aufruf"
 
 Ruft einen beliebigen Home-Assistant-Dienst mit eigenen JSON-Daten auf —

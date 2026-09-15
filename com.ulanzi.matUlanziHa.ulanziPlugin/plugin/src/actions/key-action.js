@@ -192,22 +192,54 @@
       this.render();
 
       try {
-        if (def.entityIds.length === 1) {
-          const entityId = def.entityIds[0];
-          const call = global.HaDomains.pressService(entityId, entry.client.getState(entityId));
-          await entry.client.callService(call.domain, call.service, call.data, {
-            entity_id: entityId
-          });
+        const plans = global.SwitchPlan;
+
+        // Plain toggling stays one call — cheap, and it keeps a group uniform.
+        if (!plans.hasExtras(def)) {
+          if (def.entityIds.length === 1) {
+            const entityId = def.entityIds[0];
+            const call = global.HaDomains.pressService(entityId, entry.client.getState(entityId));
+            await entry.client.callService(call.domain, call.service, call.data, {
+              entity_id: entityId
+            });
+          } else {
+            // homeassistant.* spans domains, and the aggregate decides the
+            // direction so the group ends up uniform.
+            const group = this.aggregate(def, entry);
+            await entry.client.callService(
+              'homeassistant',
+              group.active ? 'turn_off' : 'turn_on',
+              {},
+              { entity_id: def.entityIds }
+            );
+          }
         } else {
-          // One call for the whole group: homeassistant.* spans domains, and the
-          // aggregate decides the direction so the group ends up uniform.
+          // The button says *how* it wants things switched, and a toggle cannot
+          // carry parameters — so each entity gets its own explicit call.
           const group = this.aggregate(def, entry);
-          await entry.client.callService(
-            'homeassistant',
-            group.active ? 'turn_off' : 'turn_on',
-            {},
-            { entity_id: def.entityIds }
-          );
+          const wantOn =
+            def.entityIds.length > 1
+              ? !group.active
+              : !global.HaDomains.isActive(def.entityIds[0], entry.client.getState(def.entityIds[0]));
+
+          for (const entityId of def.entityIds) {
+            const json = plans.dataFor(def, entityId, wantOn);
+            const plan = plans.switchPlan(entityId, wantOn, json);
+            if (plan) {
+              await entry.client.callService(plan.domain, plan.service, plan.data, {
+                entity_id: entityId
+              });
+            } else {
+              // Nothing extra for this one: switch it the ordinary way, but in
+              // the direction the whole button decided on.
+              await entry.client.callService(
+                'homeassistant',
+                wantOn ? 'turn_on' : 'turn_off',
+                {},
+                { entity_id: entityId }
+              );
+            }
+          }
         }
       } catch (err) {
         this._log('[key] ' + def.entityIds.join(',') + ' failed: ' + err.message);

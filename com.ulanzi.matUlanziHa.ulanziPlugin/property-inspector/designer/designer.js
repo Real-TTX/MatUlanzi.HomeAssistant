@@ -459,6 +459,15 @@
       showEmptyState();
     });
 
+    el('switch-scope').addEventListener('change', () => {
+      const entry = library.button(selection.id);
+      if (entry) renderSwitchEditor(entry);
+    });
+    for (const id of ['switch-on', 'switch-off']) {
+      el(id).addEventListener('input', Utils.debounce(commitSwitchEditor, 250));
+      el(id).addEventListener('change', commitSwitchEditor);
+    }
+
     const buttonForm = el('button-form');
     buttonForm.addEventListener('input', Utils.debounce(commitButtonForm, 200));
     buttonForm.addEventListener('change', commitButtonForm);
@@ -813,6 +822,7 @@
     fields.show_bar.checked = String(style.show_bar) !== '0';
     fields.html.value = style.html || '';
 
+    renderSwitchEditor(entry);
     applyModeVisibility(style.mode);
     applyTypeVisibility(fields.type.value);
     applyGroupVisibility(global.Library.entitiesOf(entry).length);
@@ -896,8 +906,116 @@
     el('service-fields').classList.toggle('hidden', type !== 'service');
     el('step-field').classList.toggle('hidden', type !== 'step');
     applyLongPressVisibility();
+    const aktuell = library.button(selection.id);
+    if (aktuell) renderSwitchEditor(aktuell);
     if (type === 'open') applyOpenVisibility();
     if (type === 'service' || type === 'step') applyServiceHint();
+  }
+
+  /**
+   * The "when switching" editor.
+   *
+   * Kept outside the main form on purpose: its two fields mean different things
+   * depending on the scope select — the button's default, or one entity's
+   * override — so a plain form round-trip would overwrite the wrong one.
+   */
+  function renderSwitchEditor(entry) {
+    const host = el('switch-fields');
+    if (!host) return;
+
+    const type = el('button-form').elements.type.value;
+    const entities = global.Library.entitiesOf(entry);
+    // Only a key that actually switches something has an on/off to describe.
+    host.classList.toggle('hidden', type !== 'toggle' || !entities.length);
+    if (type !== 'toggle' || !entities.length) return;
+
+    const scope = el('switch-scope');
+    const wanted = scope.value && entities.indexOf(scope.value) !== -1 ? scope.value : '';
+    fillOptions(
+      scope,
+      [{ id: '', name: t('All entities') }].concat(
+        entities.map((id) => ({ id: id, name: entityLabel(entry, id) + (hasOverride(entry, id) ? ' \u2022' : '') }))
+      )
+    );
+    scope.value = wanted;
+
+    const data = scopeData(entry, wanted);
+    el('switch-on').value = data.on;
+    el('switch-off').value = data.off;
+    showSwitchProblem(entry);
+  }
+
+  function entityLabel(entry, entityId) {
+    const pooled = pool.get(entry.connection) || pool.entries()[0];
+    const record = pooled && pooled.registry ? pooled.registry.get(entityId) : null;
+    return record ? record.name : entityId;
+  }
+
+  function hasOverride(entry, entityId) {
+    const actions = entry.entity_actions || {};
+    const own = actions[entityId] || {};
+    return Boolean(String(own.on || '').trim() || String(own.off || '').trim());
+  }
+
+  function scopeData(entry, entityId) {
+    if (!entityId) {
+      return { on: entry.on_data || '', off: entry.off_data || '' };
+    }
+    const own = (entry.entity_actions || {})[entityId] || {};
+    return { on: own.on || '', off: own.off || '' };
+  }
+
+  /** Writes the two fields back into whichever scope is selected. */
+  function commitSwitchEditor() {
+    const entry = library.button(selection.id);
+    if (!entry) return;
+
+    const scope = el('switch-scope').value;
+    const on = el('switch-on').value;
+    const off = el('switch-off').value;
+
+    if (!scope) {
+      library.updateButton(entry.id, { on_data: on, off_data: off });
+    } else {
+      const actions = Object.assign({}, entry.entity_actions || {});
+      if (String(on).trim() || String(off).trim()) {
+        actions[scope] = { on: on, off: off };
+      } else {
+        delete actions[scope];
+      }
+      library.updateButton(entry.id, { entity_actions: actions });
+    }
+
+    showSwitchProblem(library.button(entry.id));
+    save();
+    renderPreview();
+  }
+
+  /** Names the first broken JSON, because a bad one silently switches nothing. */
+  function showSwitchProblem(entry) {
+    const hint = el('switch-hint');
+    if (!hint || !entry) return;
+
+    const kandidaten = [
+      [t('On'), entry.on_data],
+      [t('Off'), entry.off_data]
+    ];
+    for (const id of Object.keys(entry.entity_actions || {})) {
+      const own = entry.entity_actions[id] || {};
+      kandidaten.push([id + ' ' + t('On'), own.on]);
+      kandidaten.push([id + ' ' + t('Off'), own.off]);
+    }
+
+    for (const [wo, json] of kandidaten) {
+      const parsed = global.SwitchPlan.parseData(json);
+      if (parsed.error) {
+        hint.textContent = wo + ': ' + t('Data is not valid JSON') + ' \u2014 ' + parsed.error;
+        hint.classList.add('bad');
+        return;
+      }
+    }
+    hint.classList.remove('bad');
+    hint.textContent = t('Leave empty for a plain toggle. Per entity beats the setting for all.');
   }
 
   /** The button picker only matters when the long press should run one. */
@@ -1042,6 +1160,7 @@
     library.updateButton(selection.id, { entities: entities, entity_id: entities[0] || '' });
     save();
     renderChips(library.button(selection.id));
+    renderSwitchEditor(library.button(selection.id));
     renderSidebar();
     renderPreview();
     if (picker) picker.setSelected(entities);

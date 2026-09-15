@@ -164,6 +164,12 @@
     "Run another button": "Anderen Button ausführen",
     "Button for the long press": "Button für den langen Druck",
     "hint_long_press": "Führt die Druck-Aktion dieses Buttons aus — Dienst-Aufruf, Schritt, alles.",
-    "Long press has no button": "Langer Druck hat keinen Button hinterlegt"
+    "Long press has no button": "Langer Druck hat keinen Button hinterlegt",
+    "When switching": "Beim Schalten",
+    "All entities": "Alle Entitäten",
+    "On (JSON)": "EIN (JSON)",
+    "Off (JSON)": "AUS (JSON)",
+    "hint_switch": "Leer lassen für einfaches Umschalten. Pro Entität schlägt die Einstellung für alle.",
+    "Leave empty for a plain toggle. Per entity beats the setting for all.": "Leer lassen für einfaches Umschalten. Pro Entität schlägt die Einstellung für alle."
   }
 }

@@ -25,6 +25,7 @@
           '../../plugin/src/library.js',
           '../../plugin/src/ha-domains.js',
           '../../plugin/src/mdi-icons.js',
+          '../../plugin/src/switch-plan.js',
           '../../plugin/src/target-context.js',
           '../../plugin/src/ha-links.js',
           '../../plugin/src/key-style.js',
@@ -250,6 +251,29 @@
                 <label data-localize>Entities</label>
                 <div id="entity-chips" class="chips"></div>
                 <div id="picker"></div>
+              </div>
+
+              <!--
+                What "on" should mean. A toggle cannot carry parameters, so as
+                soon as anything is filled in here the key sends an explicit
+                turn_on/turn_off instead.
+              -->
+              <div class="field hidden" id="switch-fields">
+                <label data-localize>When switching</label>
+                <select id="switch-scope"></select>
+                <div class="grid-2">
+                  <div class="field">
+                    <label data-localize>On (JSON)</label>
+                    <textarea id="switch-on" spellcheck="false" placeholder='{"brightness_pct": 60, "rgbw_color": [255,160,60,0]}'></textarea>
+                  </div>
+                  <div class="field">
+                    <label data-localize>Off (JSON)</label>
+                    <textarea id="switch-off" spellcheck="false" placeholder='{"transition": 2}'></textarea>
+                  </div>
+                </div>
+                <p class="hint" id="switch-hint" data-localize="hint_switch">
+                  Leave empty for a plain toggle. Per entity beats the setting for all.
+                </p>
               </div>
 
               <div class="field hidden" id="group-rule-field">
