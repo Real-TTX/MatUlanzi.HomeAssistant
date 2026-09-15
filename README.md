@@ -109,6 +109,34 @@ sortiert (`DG › Dachboden`, `EG › Büro`, …). Gebaut wird die Adresse in
 **gar nichts** — weder relativ noch absolut, ohne Fehlermeldung. Deshalb ist
 jedes Ziel hier eine Remote-Adresse.
 
+### Standard-Aktionen statt JSON tippen
+
+Für die alltäglichen Wünsche gibt es fertige Aktionen mit echten Eingabefeldern;
+das JSON entsteht daraus und bleibt darunter sichtbar und bearbeitbar:
+
+| Aktion | Domain/Dienst | Felder |
+| --- | --- | --- |
+| Licht einschalten | `light.turn_on` | Helligkeit, Farbe (Farbwähler), Farbtemperatur, Übergang |
+| Solltemperatur setzen | `climate.set_temperature` | Solltemperatur |
+| Betriebsart setzen | `climate.set_hvac_mode` | off, heat, cool, auto, dry, fan_only |
+| Lautstärke setzen | `media_player.volume_set` | Lautstärke in Prozent |
+| Position setzen | `cover.set_cover_position` | Position |
+| Stufe setzen | `fan.set_percentage` | Stufe |
+| Wert setzen | `number.set_value` | Wert |
+| Szene aktivieren | `scene.turn_on` | Übergang |
+| Benachrichtigung | `notify.persistent_notification` | Titel, Nachricht |
+
+Angeboten wird nur, was zur gewählten Entität passt. Zwei Fallen nimmt der
+Katalog dabei ab: **Lautstärke** will Home Assistant als `0..1`, das Feld rechnet
+aus Prozent um — sonst schickt man hundertmal zu viel. Und **Temperatur,
+Lautstärke, Position** gehen *nicht* über `turn_on`, sondern brauchen je einen
+eigenen Dienst; deshalb trägt jede Aktion ihren mit.
+
+Im Schalt-Editor erscheinen die Licht-Felder direkt über dem JSON, weil `turn_on`
+bei Licht als einziger Domain Farbe und Helligkeit direkt annimmt. Ein leeres
+Feld wird nicht gesendet: Home Assistant unterscheidet einen fehlenden Schlüssel
+deutlich von einem `null`.
+
 ### Was „EIN" bedeuten soll
 
 Ein `toggle` kann keine Parameter tragen — deshalb sagt ein Button nicht nur,

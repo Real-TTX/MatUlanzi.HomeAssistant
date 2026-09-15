@@ -459,6 +459,17 @@
       showEmptyState();
     });
 
+    el('preset-pick').addEventListener('change', () => {
+      const preset = global.ActionPresets.byId(el('preset-pick').value);
+      if (!preset) return;
+      const fields = el('button-form').elements;
+      fields.service_domain.value = preset.domain;
+      fields.service_name.value = preset.service;
+      commitButtonForm();
+      const entry = library.button(selection.id);
+      if (entry) renderServicePresets(entry);
+    });
+
     el('switch-scope').addEventListener('change', () => {
       const entry = library.button(selection.id);
       if (entry) renderSwitchEditor(entry);
@@ -910,6 +921,8 @@
     if (aktuell) renderSwitchEditor(aktuell);
     if (type === 'open') applyOpenVisibility();
     if (type === 'service' || type === 'step') applyServiceHint();
+    const aktuellerButton = library.button(selection.id);
+    if (type === 'service' && aktuellerButton) renderServicePresets(aktuellerButton);
   }
 
   /**
@@ -942,6 +955,21 @@
     const data = scopeData(entry, wanted);
     el('switch-on').value = data.on;
     el('switch-off').value = data.off;
+
+    // Colour and brightness without writing JSON. Only for lights, because
+    // that is the only domain whose turn_on takes them.
+    const proben = wanted ? [wanted] : entities;
+    const alleLichter = proben.length && proben.every((id) => id.indexOf('light.') === 0);
+    const preset = alleLichter ? global.ActionPresets.byId('light_on') : null;
+    const geparst = global.SwitchPlan.parseData(data.on);
+    renderPresetFields(el('switch-preset-fields'), preset, geparst.error ? {} : geparst.data, () => {
+      el('switch-on').value = mergeIntoJson(
+        el('switch-on').value,
+        preset,
+        collectPresetValues(el('switch-preset-fields'))
+      );
+      commitSwitchEditor();
+    });
     showSwitchProblem(entry);
   }
 
@@ -1018,6 +1046,100 @@
     hint.textContent = t('Leave empty for a plain toggle. Per entity beats the setting for all.');
   }
 
+  /**
+   * Renders the input fields of a preset into `host`.
+   *
+   * The JSON underneath stays the single source of truth: these fields read
+   * from it and write back into it, so anything the catalogue does not know
+   * survives untouched.
+   */
+  function renderPresetFields(host, preset, data, onChange) {
+    host.innerHTML = '';
+    if (!preset || !preset.fields.length) return;
+
+    const values = global.ActionPresets.readValues(preset, data);
+
+    for (const field of preset.fields) {
+      const wrap = doc.createElement('div');
+      wrap.className = 'field';
+
+      const label = doc.createElement('label');
+      label.textContent = t(field.label) + (field.unit ? ' (' + field.unit + ')' : '');
+      wrap.appendChild(label);
+
+      let input;
+      if (field.type === 'select') {
+        input = doc.createElement('select');
+        for (const option of [''].concat(field.options)) {
+          const node = doc.createElement('option');
+          node.value = option;
+          node.textContent = option || '\u2014';
+          input.appendChild(node);
+        }
+      } else if (field.type === 'color') {
+        input = doc.createElement('input');
+        input.type = 'color';
+      } else if (field.type === 'text') {
+        input = doc.createElement('input');
+        input.type = 'text';
+      } else {
+        input = doc.createElement('input');
+        input.type = 'number';
+        if (field.type === 'percent' || field.type === 'fraction') {
+          input.min = 0;
+          input.max = 100;
+          input.step = 1;
+        } else {
+          if (field.min !== undefined) input.min = field.min;
+          if (field.max !== undefined) input.max = field.max;
+          if (field.step !== undefined) input.step = field.step;
+        }
+      }
+
+      const current = values[field.key];
+      input.value = current === undefined ? '' : current;
+      input.dataset.presetKey = field.key;
+
+      // A colour input has no empty state, so an unset colour must not silently
+      // become black the moment the fields are drawn.
+      if (field.type === 'color' && !current) input.dataset.unset = '1';
+
+      input.addEventListener('input', () => {
+        delete input.dataset.unset;
+        onChange();
+      });
+      input.addEventListener('change', onChange);
+
+      wrap.appendChild(input);
+      host.appendChild(wrap);
+    }
+  }
+
+  /** Reads the rendered fields back out, skipping the ones never touched. */
+  function collectPresetValues(host) {
+    const values = {};
+    for (const input of host.querySelectorAll('[data-preset-key]')) {
+      if (input.dataset.unset) continue;
+      values[input.dataset.presetKey] = input.value;
+    }
+    return values;
+  }
+
+  /** Merges preset values into existing JSON without losing unknown keys. */
+  function mergeIntoJson(json, preset, values) {
+    const parsed = global.SwitchPlan.parseData(json);
+    const base = parsed.error ? {} : parsed.data || {};
+    const fresh = global.ActionPresets.buildData(preset, values);
+
+    const merged = Object.assign({}, base);
+    for (const field of preset ? preset.fields : []) {
+      delete merged[field.key];
+    }
+    Object.assign(merged, fresh);
+
+    return Object.keys(merged).length ? JSON.stringify(merged) : '';
+  }
+
   /** The button picker only matters when the long press should run one. */
   function applyLongPressVisibility() {
     const fields = el('button-form').elements;
@@ -1025,6 +1147,42 @@
       'hidden',
       fields.long_press.value !== 'button'
     );
+  }
+
+  /**
+   * Offers ready-made actions for the chosen entity and fills domain, service
+   * and data from them — hand-written JSON stays possible, but is no longer
+   * the only way in.
+   */
+  function renderServicePresets(entry) {
+    const fields = el('button-form').elements;
+    const pick = el('preset-pick');
+    const host = el('preset-fields');
+    if (!pick || !host) return;
+
+    const entityId = global.Library.entitiesOf(entry)[0] || '';
+    const angebote = global.ActionPresets.forEntity(entityId);
+    const treffer = global.ActionPresets.match(fields.service_domain.value, fields.service_name.value);
+
+    fillOptions(
+      pick,
+      [{ id: '', name: '— ' + t('Own service') + ' —' }].concat(
+        angebote.map((preset) => ({ id: preset.id, name: t(preset.label) }))
+      )
+    );
+    pick.value = treffer ? treffer.id : '';
+
+    const parsed = global.SwitchPlan.parseData(fields.service_data.value);
+    renderPresetFields(host, treffer, parsed.error ? {} : parsed.data, () => {
+      const preset = global.ActionPresets.byId(pick.value);
+      if (!preset) return;
+      fields.service_data.value = mergeIntoJson(
+        fields.service_data.value,
+        preset,
+        collectPresetValues(host)
+      );
+      commitButtonForm();
+    });
   }
 
   /** Tells at a glance whether the JSON parses and what the key will send. */

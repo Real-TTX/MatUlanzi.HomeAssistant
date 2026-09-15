@@ -25,6 +25,7 @@
           '../../plugin/src/library.js',
           '../../plugin/src/ha-domains.js',
           '../../plugin/src/mdi-icons.js',
+          '../../plugin/src/action-presets.js',
           '../../plugin/src/switch-plan.js',
           '../../plugin/src/target-context.js',
           '../../plugin/src/ha-links.js',
@@ -219,6 +220,11 @@
 
               <!-- Only for the "service" type: any Home Assistant service. -->
               <div class="hidden" id="service-fields">
+                <div class="field">
+                  <label data-localize>Standard action</label>
+                  <select id="preset-pick"></select>
+                </div>
+                <div id="preset-fields" class="grid-2"></div>
                 <div class="grid-2">
                   <div class="field">
                     <label data-localize>Domain</label>
@@ -261,6 +267,7 @@
               <div class="field hidden" id="switch-fields">
                 <label data-localize>When switching</label>
                 <select id="switch-scope"></select>
+                <div id="switch-preset-fields" class="grid-2"></div>
                 <div class="grid-2">
                   <div class="field">
                     <label data-localize>On (JSON)</label>

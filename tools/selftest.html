@@ -8,6 +8,7 @@
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-registry.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-domains.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/mdi-icons.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/action-presets.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/switch-plan.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/target-context.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-links.js"></script>
@@ -448,6 +449,43 @@
         check('WS-URL aus nacktem Host', haToWebSocketUrl('ha.local:8123') === 'ws://ha.local:8123/api/websocket');
         check('i18n de', new I18n('de_DE').t('On') === 'An');
         check('i18n Fallback en', new I18n('fr_FR').t('On') === 'On');
+
+        section('Standard-Aktionen statt JSON tippen');
+        {
+          const ap = ActionPresets;
+
+          const fuerLicht = ap.forEntity('light.wz').map((p) => p.id);
+          check('Licht bekommt Licht-Aktionen', fuerLicht.indexOf('light_on') !== -1);
+          check('und keine Klima-Aktion', fuerLicht.indexOf('climate_temperature') === -1);
+          check('allgemeine Aktion kommt zuletzt', fuerLicht[fuerLicht.length - 1] === 'notify');
+          check('Klima bekommt Temperatur und Betriebsart', ap.forEntity('climate.x').map((p) => p.id).indexOf('climate_mode') !== -1);
+          check('Rollo bekommt Position', ap.forEntity('cover.x').map((p) => p.id)[0] === 'cover_position');
+
+          const licht = ap.byId('light_on');
+          const daten = ap.buildData(licht, { brightness_pct: '60', rgb_color: '#ffa03c', transition: '' });
+          check('Helligkeit wird zur Zahl', daten.brightness_pct === 60, JSON.stringify(daten));
+          check('Farbe wird zu RGB', JSON.stringify(daten.rgb_color) === '[255,160,60]', JSON.stringify(daten.rgb_color));
+          check('leeres Feld fehlt ganz', !('transition' in daten));
+
+          const volume = ap.buildData(ap.byId('media_volume'), { volume_level: '40' });
+          check('Lautstärke wird zum Bruch (HA will 0..1)', volume.volume_level === 0.4, JSON.stringify(volume));
+
+          const modus = ap.buildData(ap.byId('climate_mode'), { hvac_mode: 'cool' });
+          check('Betriebsart bleibt Text', modus.hvac_mode === 'cool');
+
+          const zurueck = ap.readValues(licht, { brightness_pct: 60, rgb_color: [255, 160, 60] });
+          check('Helligkeit kommt zurück', zurueck.brightness_pct === 60);
+          check('Farbe kommt als Hex zurück', zurueck.rgb_color === '#ffa03c', String(zurueck.rgb_color));
+          check('Lautstärke kommt als Prozent zurück', ap.readValues(ap.byId('media_volume'), { volume_level: 0.4 }).volume_level === 40);
+
+          check('gespeicherter Aufruf findet seine Aktion', ap.match('climate', 'set_temperature').id === 'climate_temperature');
+          check('unbekannter Aufruf findet keine', ap.match('foo', 'bar') === null);
+
+          check('Farbe rund: hex zu rgb', JSON.stringify(ap.hexToRgb('#00ff80')) === '[0,255,128]');
+          check('Farbe rund: rgb zu hex', ap.rgbToHex([0, 255, 128]) === '#00ff80');
+          check('kaputte Farbe ergibt nichts', ap.hexToRgb('grün') === null);
+          check('einstellige Anteile werden aufgefüllt', ap.rgbToHex([1, 2, 3]) === '#010203');
+        }
 
         section('EIN mit Farbe: was genau gesendet wird');
         {
