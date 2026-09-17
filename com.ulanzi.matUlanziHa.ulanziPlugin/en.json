@@ -198,6 +198,8 @@
     "Short press": "Short press",
     "Pick an action": "Pick an action",
     "Remove this action": "Remove this action",
-    "Some fields of this service are only reachable through the JSON below.": "Some fields of this service are only reachable through the JSON below."
+    "Some fields of this service are only reachable through the JSON below.": "Some fields of this service are only reachable through the JSON below.",
+    "Send this field": "Send this field",
+    "Colour and colour temperature exclude each other — Home Assistant will use only one.": "Colour and colour temperature exclude each other — Home Assistant will use only one."
   }
 }

@@ -109,6 +109,27 @@ sortiert (`DG › Dachboden`, `EG › Büro`, …). Gebaut wird die Adresse in
 **gar nichts** — weder relativ noch absolut, ohne Fehlermeldung. Deshalb ist
 jedes Ziel hier eine Remote-Adresse.
 
+### Nur angehakte Felder werden gesendet
+
+Jedes Feld trägt ein Häkchen. Der Grund ist unangenehm banal: ein Schieberegler
+steht *immer* irgendwo, auch wenn sein Wert gar nicht Teil des Aufrufs ist. Ohne
+Häkchen sah ein unberührter Farbregler so aus, als würde die Farbe mitgeschickt,
+und beim Speichern fiel sie stillschweigend weg.
+
+Jetzt ist es sichtbar: nicht angehakte Felder sind ausgegraut und fehlen im
+JSON. Wer einen Regler anfasst, hakt ihn damit automatisch an. Das erzeugte JSON
+steht darunter und wächst mit:
+
+```
+Helligkeit bewegt   →  {"brightness_pct":35}
+Farbe bewegt        →  {"rgb_color":[255,51,255],"brightness_pct":35}
+Kelvin bewegt       →  {"rgb_color":[...],"color_temp_kelvin":2700,"brightness_pct":35}
+Helligkeit erneut   →  die anderen bleiben, nur der eine Wert ändert sich
+```
+
+Sind Farbe und Farbtemperatur gleichzeitig gesetzt, wird gewarnt — Home Assistant
+nimmt in dem Fall nur eines davon und sagt nicht, welches.
+
 ### Aktionsliste: wann, worauf, was
 
 Ein Button trägt eine Liste von Aktionen statt fester Felder. Jede Zeile sagt,

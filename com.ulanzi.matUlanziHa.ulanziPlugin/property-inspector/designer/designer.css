@@ -687,3 +687,23 @@ legend {
   font-family: Consolas, monospace;
   font-size: 11px;
 }
+
+/* A field that is not ticked is not part of the call — show it as inactive. */
+.ha-field-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.ha-field-on {
+  cursor: pointer;
+}
+
+.ha-field-off > *:not(.ha-field-head) {
+  opacity: 0.4;
+}
+
+.ha-field-off .ha-field-head {
+  color: #8b9099;
+}

@@ -1032,6 +1032,20 @@
     renderPreview();
   }
 
+  /**
+   * A colour and a colour temperature in the same call contradict each other —
+   * Home Assistant honours one and drops the other without saying so.
+   * @returns {string} the warning, or an empty string
+   */
+  function farbKonflikt(json) {
+    const parsed = global.SwitchPlan.parseData(json);
+    const data = parsed.error ? null : parsed.data;
+    if (!data) return '';
+    const hatFarbe = data.rgb_color || data.rgbw_color || data.rgbww_color || data.hs_color || data.xy_color;
+    const hatTemperatur = data.color_temp_kelvin !== undefined || data.color_temp !== undefined;
+    return hatFarbe && hatTemperatur ? t('Colour and colour temperature exclude each other — Home Assistant will use only one.') : '';
+  }
+
   /** Names the first broken JSON, because a bad one silently switches nothing. */
   function showSwitchProblem(entry) {
     const hint = el('switch-hint');
@@ -1055,6 +1069,12 @@
         return;
       }
     }
+    const konflikt = farbKonflikt(entry.on_data) || farbKonflikt(entry.off_data);
+    if (konflikt) {
+      hint.textContent = konflikt;
+      hint.classList.add('bad');
+      return;
+    }
     hint.classList.remove('bad');
     hint.textContent = t('Leave empty for a plain toggle. Per entity beats the setting for all.');
   }
@@ -1076,9 +1096,25 @@
       const wrap = doc.createElement('div');
       wrap.className = 'field';
 
+      // A slider always shows *some* position, which used to suggest that its
+      // value was part of the call when it was not. The tick makes that
+      // explicit: only ticked fields are sent.
       const label = doc.createElement('label');
-      label.textContent = t(field.label) + (field.unit ? ' (' + field.unit + ')' : '');
+      label.className = 'ha-field-head';
+      const an = doc.createElement('input');
+      an.type = 'checkbox';
+      an.className = 'ha-field-on';
+      an.checked = values[field.key] !== undefined;
+      an.title = t('Send this field');
+      label.appendChild(an);
+      label.appendChild(doc.createTextNode(' ' + t(field.label) + (field.unit ? ' (' + field.unit + ')' : '')));
       wrap.appendChild(label);
+
+      an.addEventListener('change', () => {
+        wrap.classList.toggle('ha-field-off', !an.checked);
+        onChange();
+      });
+      wrap.classList.toggle('ha-field-off', !an.checked);
 
       const controls = global.ColorControls;
       const current = values[field.key];
@@ -1090,7 +1126,6 @@
         // A colour has no empty state, so an untouched field must not quietly
         // become whatever the sliders happen to start at.
         if (current) steuerung.set(hexZuRgb(current));
-        else steuerung.node.dataset.unset = '1';
       } else if (field.key === 'brightness_pct') {
         steuerung = controls.brightnessField({
           value: current,
@@ -1098,13 +1133,10 @@
           // The track shows the colour picked right next to it.
           colorOf: () => aktuelleFarbe(host)
         });
-        if (current === undefined) steuerung.node.dataset.unset = '1';
       } else if (field.type === 'kelvin' || field.key === 'color_temp_kelvin') {
         steuerung = controls.kelvinField({ value: current, min: field.min, max: field.max, onChange: onChange });
-        if (current === undefined) steuerung.node.dataset.unset = '1';
       } else if (field.type === 'percent' || field.type === 'fraction') {
         steuerung = controls.percentField({ value: current, onChange: onChange });
-        if (current === undefined) steuerung.node.dataset.unset = '1';
       } else if (field.type === 'select') {
         input = doc.createElement('select');
         for (const option of [''].concat(field.options)) {
@@ -1128,12 +1160,18 @@
         steuerung.node.dataset.presetKey = field.key;
         steuerung.node.__lesen = steuerung.get;
         if (steuerung.refresh) steuerung.node.__auffrischen = steuerung.refresh;
-        steuerung.node.addEventListener('input', () => {
-          delete steuerung.node.dataset.unset;
-        }, true);
-        steuerung.node.addEventListener('click', () => {
-          delete steuerung.node.dataset.unset;
-        }, true);
+        // Touching a control means you want it: tick it automatically.
+        for (const ereignis of ['input', 'click']) {
+          steuerung.node.addEventListener(
+            ereignis,
+            () => {
+              if (an.checked) return;
+              an.checked = true;
+              wrap.classList.remove('ha-field-off');
+            },
+            true
+          );
+        }
         wrap.appendChild(steuerung.node);
         host.appendChild(wrap);
         continue;
@@ -1141,8 +1179,15 @@
 
       input.value = current === undefined ? '' : current;
       input.dataset.presetKey = field.key;
-      input.addEventListener('input', onChange);
-      input.addEventListener('change', onChange);
+      const anhaken = () => {
+        if (!an.checked) {
+          an.checked = true;
+          wrap.classList.remove('ha-field-off');
+        }
+        onChange();
+      };
+      input.addEventListener('input', anhaken);
+      input.addEventListener('change', anhaken);
       wrap.appendChild(input);
       host.appendChild(wrap);
     }
@@ -1168,7 +1213,9 @@
   function collectPresetValues(host) {
     const values = {};
     for (const node of host.querySelectorAll('[data-preset-key]')) {
-      if (node.dataset.unset) continue;
+      const wrap = node.closest('.field');
+      const an = wrap ? wrap.querySelector('.ha-field-on') : null;
+      if (an && !an.checked) continue;
       // A visual control knows its own value; a plain input has .value.
       const wert = node.__lesen ? node.__lesen() : node.value;
       values[node.dataset.presetKey] = Array.isArray(wert) ? controlsZuHex(wert) : wert;

@@ -201,6 +201,8 @@
     "Short press": "Kurzer Druck",
     "Pick an action": "Aktion wählen",
     "Remove this action": "Diese Aktion entfernen",
-    "Some fields of this service are only reachable through the JSON below.": "Einige Felder dieses Dienstes sind nur über das JSON unten erreichbar."
+    "Some fields of this service are only reachable through the JSON below.": "Einige Felder dieses Dienstes sind nur über das JSON unten erreichbar.",
+    "Send this field": "Dieses Feld mitschicken",
+    "Colour and colour temperature exclude each other — Home Assistant will use only one.": "Farbe und Farbtemperatur schließen sich aus — Home Assistant nimmt nur eines davon."
   }
 }
