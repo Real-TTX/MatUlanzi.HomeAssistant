@@ -130,6 +130,31 @@ Helligkeit erneut   →  die anderen bleiben, nur der eine Wert ändert sich
 Sind Farbe und Farbtemperatur gleichzeitig gesetzt, wird gewarnt — Home Assistant
 nimmt in dem Fall nur eines davon und sagt nicht, welches.
 
+### Der Designer: drei Blöcke, automatisch als Vorgabe
+
+Der Editor hatte sich auf sieben Bereiche aufgebläht, weil jeder neue Wunsch
+ein eigenes Feld bekam — Typ-Dropdown, EIN/AUS-Editor mit Geltungsbereich,
+fünf Long-Press-Optionen, Öffnen-, Dienst- und Schritt-Felder nebeneinander.
+Geblieben sind drei:
+
+```
+GERÄT     Entitäten · Verbindung · wirkt auf · Vorrang bei Gruppen
+AKTIONEN  automatisch — aus der Entität abgeleitet      [Anpassen]
+ANZEIGE   automatisch — Icon und Farbe aus dem Zustand  [Anpassen]
+          ▸ Kachel: Farben, Text, Icons
+```
+
+**Automatisch ist die Vorgabe, nicht die Ausnahme.** Ein Button mit leeren
+Listen verhält sich wie eh und je: die Domain entscheidet. Erst „Anpassen"
+macht daraus bearbeitbare Zeilen — und zwar *gefüllte*: für eine Lampe
+erscheinen sofort die zwei Regeln, die der Automatik entsprechen, statt einer
+leeren Tabelle. „Zurück auf automatisch" leert sie wieder.
+
+Damit ist auch die Antwort auf „mehrere Entitäten" an drei Stellen dieselbe
+Frage mit eigener Antwort: die Anzeige fasst zusammen (irgendeine/alle) oder
+zeigt eine bestimmte, jede Aktionszeile trifft alle oder eine, und jede Regel
+nennt ihren Geltungsbereich selbst.
+
 ### Ein Button, drei Auslöser, eine Kachel
 
 Das Modell ist absichtlich klein: **eine** Sorte Button, eine Kachel, und eine

@@ -218,6 +218,21 @@
     "Open control window": "Steuerfenster öffnen",
     "Stop": "Stopp",
     "Close": "Zu",
-    "Tilt": "Neigung"
+    "Tilt": "Neigung",
+    "Display": "Anzeige",
+    "Automatic — derived from the entity": "Automatisch — aus der Entität abgeleitet",
+    "Automatic — icon and colour from the state": "Automatisch — Icon und Farbe aus dem Zustand",
+    "Customise": "Anpassen",
+    "Back to automatic": "Zurück auf automatisch",
+    "Tile: colours, text, icons": "Kachel: Farben, Text, Icons",
+    "Rule": "Regel",
+    "The first rule that matches wins.": "Die erste zutreffende Regel gewinnt.",
+    "any of them": "irgendeine",
+    "all of them": "alle",
+    "is unavailable": "ist nicht erreichbar",
+    "Background": "Hintergrund",
+    "Earlier": "nach oben",
+    "Later": "nach unten",
+    "Remove this rule": "Diese Regel entfernen"
   }
 }

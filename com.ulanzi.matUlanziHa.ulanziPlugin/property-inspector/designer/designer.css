@@ -716,3 +716,68 @@ legend {
 .ha-action-kind select {
   width: 100%;
 }
+
+/* Automatic until you ask otherwise: one line, one button. */
+.ha-auto {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0.5px dashed #3a3d43;
+  border-radius: 8px;
+  color: #b9bdc4;
+  font-size: 12px;
+}
+
+.ha-more {
+  margin-top: 10px;
+}
+
+.ha-more > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #8b9099;
+  padding: 4px 0;
+}
+
+button.link {
+  background: none;
+  border: none;
+  color: #8b9099;
+  font-size: 12px;
+  padding: 4px 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.ha-rule {
+  border: 1px solid #3a3d43;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: #212429;
+}
+
+.ha-rule-when {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 0.8fr 1fr;
+  gap: 6px;
+}
+
+.ha-rule-then {
+  display: grid;
+  grid-template-columns: 1fr auto 44px auto auto auto;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.ha-rule-move {
+  width: 28px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  color: #d5d8dc;
+  cursor: pointer;
+}

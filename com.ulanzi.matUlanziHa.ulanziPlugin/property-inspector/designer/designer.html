@@ -37,6 +37,7 @@
           '../../plugin/src/actions/key-action.js',
           '../common/color-controls.js',
           'action-list.js',
+          'rule-list.js',
           '../common/entity-picker.js'
         ];
         if (location.search.indexOf('preview=1') !== -1) {
@@ -133,31 +134,29 @@
               <button type="button" class="danger" id="delete-button" data-localize>Delete</button>
             </div>
 
+            <div class="grid-2">
+              <div class="field">
+                <label data-localize>Name</label>
+                <input type="text" name="name" placeholder="Deckenlicht Wohnzimmer" />
+              </div>
+              <div class="field">
+                <label data-localize>Folder</label>
+                <select name="folder"></select>
+              </div>
+            </div>
+
             <fieldset>
-              <legend data-localize>What it controls</legend>
+              <legend data-localize>Device</legend>
+              <div class="field">
+                <label data-localize>Entities</label>
+                <div id="entity-chips" class="chips"></div>
+                <div id="picker"></div>
+              </div>
+
               <div class="grid-2">
-                <div class="field">
-                  <label data-localize>Name</label>
-                  <input type="text" name="name" placeholder="Deckenlicht Wohnzimmer" />
-                </div>
-                <div class="field">
-                  <label data-localize>Folder</label>
-                  <select name="folder"></select>
-                </div>
                 <div class="field">
                   <label data-localize>Connection</label>
                   <select name="connection"></select>
-                </div>
-                <div class="field">
-                  <label data-localize>Type</label>
-                  <select name="type">
-                    <option value="toggle" data-localize>Button (switches)</option>
-                    <option value="info" data-localize>Info (display only)</option>
-                    <option value="open" data-localize>Open (jumps to Home Assistant)</option>
-                    <option value="service" data-localize>Service call (any HA service)</option>
-                    <option value="step" data-localize>Step (adjust up or down)</option>
-                    <option value="control" data-localize>Control window (knobs on the PC)</option>
-                  </select>
                 </div>
                 <div class="field">
                   <label data-localize>Acts on</label>
@@ -167,133 +166,11 @@
                     <option value="button" data-localize>The device of another button</option>
                   </select>
                 </div>
-                <div class="field hidden" id="target-button-field">
-                  <label data-localize>Follows this button</label>
-                  <select name="target_button"></select>
-                  <p class="hint" data-localize="hint_follow">
-                    Put the lead key and this one next to each other on the deck.
-                  </p>
-                </div>
-                <div class="field">
-                  <label data-localize>Long press</label>
-                  <select name="long_press">
-                    <option value="identify" data-localize>Identify (flash the device)</option>
-                    <option value="target" data-localize>Remember as context device</option>
-                    <option value="open" data-localize>Open in Home Assistant</option>
-                    <option value="button" data-localize>Run another button</option>
-                    <option value="none" data-localize>Do nothing</option>
-                  </select>
-                </div>
               </div>
 
-              <div class="field hidden" id="long-press-button-field">
-                <label data-localize>Button for the long press</label>
-                <select name="long_press_button"></select>
-                <p class="hint" data-localize="hint_long_press">
-                  Runs that button’s press action — a service call, a step, anything.
-                </p>
-              </div>
-
-              <div class="field hidden" id="interval-field">
-                <label data-localize>Redraw every (seconds)</label>
-                <input type="number" name="refresh_interval" min="0" max="3600" step="5" />
-                <p class="hint" data-localize="hint_interval">
-                  States arrive pushed, so 0 is fine. Only needed for time-based text like {{age}}.
-                </p>
-              </div>
-
-              <!-- Only for the "open" type: what the press should jump to. -->
-              <div class="hidden" id="open-fields">
-                <div class="field">
-                  <label data-localize>Jump to</label>
-                  <select name="open_target">
-                    <option value="entity" data-localize>The entity (info dialog)</option>
-                    <option value="area" data-localize>A room</option>
-                    <option value="dashboard" data-localize>A dashboard</option>
-                    <option value="url" data-localize>A free address</option>
-                  </select>
-                </div>
-                <div class="field hidden" id="open-area-field">
-                  <label data-localize>Room</label>
-                  <select name="open_area"></select>
-                </div>
-                <div class="field hidden" id="open-dashboard-field">
-                  <label data-localize>Dashboard path</label>
-                  <input type="text" name="open_dashboard" placeholder="lovelace/0" />
-                  <p class="hint" data-localize="hint_dashboard">
-                    Everything after the server address, for example lovelace/0 or my-dash/kitchen.
-                  </p>
-                </div>
-                <div class="field hidden" id="open-url-field">
-                  <label data-localize>Address</label>
-                  <input type="text" name="open_url" placeholder="https://…" />
-                </div>
-                <p class="hint" id="open-preview"></p>
-              </div>
-
-              <!-- Only for the "service" type: any Home Assistant service. -->
-              <div class="hidden" id="service-fields">
-                <div class="field">
-                  <label data-localize>Standard action</label>
-                  <select id="preset-pick"></select>
-                </div>
-                <div id="preset-fields" class="grid-2"></div>
-                <div class="grid-2">
-                  <div class="field">
-                    <label data-localize>Domain</label>
-                    <input type="text" name="service_domain" placeholder="climate" />
-                  </div>
-                  <div class="field">
-                    <label data-localize>Service</label>
-                    <input type="text" name="service_name" placeholder="set_hvac_mode" />
-                  </div>
-                </div>
-                <div class="field">
-                  <label data-localize>Data (JSON)</label>
-                  <textarea name="service_data" spellcheck="false" placeholder='{"hvac_mode": "cool"}'></textarea>
-                  <p class="hint" id="service-hint" data-localize="hint_service">
-                    The chosen entity is sent as the target. Leave empty for services that take none.
-                  </p>
-                </div>
-              </div>
-
-              <!-- Only for the "step" type: a relative nudge, like a dial click. -->
-              <div class="field hidden" id="step-field">
-                <label data-localize>Step by</label>
-                <input type="number" name="step_amount" step="0.5" placeholder="1" />
-                <p class="hint" data-localize="hint_step">
-                  Degrees for climate, percent for light, cover, fan and volume. Negative goes down.
-                </p>
-              </div>
-
-              <div class="field">
-                <label data-localize>Entities</label>
-                <div id="entity-chips" class="chips"></div>
-                <div id="picker"></div>
-              </div>
-
-              <!--
-                What "on" should mean. A toggle cannot carry parameters, so as
-                soon as anything is filled in here the key sends an explicit
-                turn_on/turn_off instead.
-              -->
-              <div class="field hidden" id="switch-fields">
-                <label data-localize>When switching</label>
-                <select id="switch-scope"></select>
-                <div id="switch-preset-fields" class="grid-2"></div>
-                <div class="grid-2">
-                  <div class="field">
-                    <label data-localize>On (JSON)</label>
-                    <textarea id="switch-on" spellcheck="false" placeholder='{"brightness_pct": 60, "rgbw_color": [255,160,60,0]}'></textarea>
-                  </div>
-                  <div class="field">
-                    <label data-localize>Off (JSON)</label>
-                    <textarea id="switch-off" spellcheck="false" placeholder='{"transition": 2}'></textarea>
-                  </div>
-                </div>
-                <p class="hint" id="switch-hint" data-localize="hint_switch">
-                  Leave empty for a plain toggle. Per entity beats the setting for all.
-                </p>
+              <div class="field hidden" id="target-button-field">
+                <label data-localize>Follows this button</label>
+                <select name="target_button"></select>
               </div>
 
               <div class="field hidden" id="group-rule-field">
@@ -302,133 +179,146 @@
                   <option value="any_on" data-localize>ON wins (one member on = key on)</option>
                   <option value="all_on" data-localize>OFF wins (all must be on = key on)</option>
                 </select>
-                <p class="hint" data-localize="hint_group">
-                  A press switches the whole group: on when the key shows off, off otherwise.
-                </p>
               </div>
-            </fieldset>
-
-            <fieldset id="actions-section">
-              <legend data-localize>Actions</legend>
-              <p class="hint" data-localize="hint_actions">
-                Each row says when it runs, on which entity, and what to call. Rows run in order.
-              </p>
-              <div id="action-list"></div>
             </fieldset>
 
             <fieldset>
-              <legend data-localize>Look</legend>
-              <div class="field">
-                <label data-localize>Mode</label>
-                <select name="mode">
-                  <option value="classic" data-localize>Zones (colour, icon, text)</option>
-                  <option value="html" data-localize>Own HTML</option>
-                </select>
+              <legend data-localize>Actions</legend>
+              <div class="ha-auto" id="actions-auto">
+                <span data-localize>Automatic — derived from the entity</span>
+                <span class="spacer"></span>
+                <button type="button" id="actions-customise" data-localize>Customise</button>
               </div>
+              <div id="action-list" class="hidden"></div>
+              <button type="button" class="link hidden" id="actions-reset" data-localize>
+                Back to automatic
+              </button>
+            </fieldset>
 
-              <div id="classic-fields">
-                <div class="grid-2">
-                  <div class="field">
-                    <label data-localize>Background off</label>
-                    <div class="with-check">
-                      <input type="color" name="bg_off" value="#2a2d33" />
-                    </div>
-                  </div>
-                  <div class="field">
-                    <label data-localize>Background on</label>
-                    <div class="with-check">
-                      <input type="color" name="bg_on" value="#f4b740" />
-                      <label class="check">
-                        <input type="checkbox" name="bg_on_auto" />
-                        <span data-localize>from entity</span>
-                      </label>
-                    </div>
-                  </div>
-                  <div class="field">
-                    <label data-localize>Text off</label>
-                    <div class="with-check">
-                      <input type="color" name="text_off" value="#eceef0" />
-                      <label class="check">
-                        <input type="checkbox" name="text_off_auto" />
-                        <span data-localize>auto</span>
-                      </label>
-                    </div>
-                  </div>
-                  <div class="field">
-                    <label data-localize>Text on</label>
-                    <div class="with-check">
-                      <input type="color" name="text_on" value="#14161a" />
-                      <label class="check">
-                        <input type="checkbox" name="text_on_auto" />
-                        <span data-localize>auto</span>
-                      </label>
-                    </div>
-                  </div>
+            <fieldset>
+              <legend data-localize>Display</legend>
+              <div class="ha-auto" id="rules-auto">
+                <span data-localize>Automatic — icon and colour from the state</span>
+                <span class="spacer"></span>
+                <button type="button" id="rules-customise" data-localize>Customise</button>
+              </div>
+              <div id="rule-list" class="hidden"></div>
+              <button type="button" class="link hidden" id="rules-reset" data-localize>
+                Back to automatic
+              </button>
+
+              <details class="ha-more">
+                <summary data-localize>Tile: colours, text, icons</summary>
+                <div class="field">
+                  <label data-localize>Mode</label>
+                  <select name="mode">
+                    <option value="classic" data-localize>Zones (colour, icon, text)</option>
+                    <option value="html" data-localize>Own HTML</option>
+                  </select>
                 </div>
 
-                <div class="grid-2">
-                  <div class="field">
-                    <label data-localize>Icon off</label>
-                    <div class="icon-field">
-                      <span class="icon-preview" data-icon-preview="icon_off"></span>
-                      <input type="text" name="icon_off" placeholder="—" />
-                      <button type="button" data-icon-browse="icon_off" data-localize>Choose</button>
-                      <button type="button" data-pick-icon="icon_off" data-localize>File…</button>
-                      <button type="button" data-clear-icon="icon_off">✕</button>
+                <div id="classic-fields">
+                  <div class="grid-2">
+                    <div class="field">
+                      <label data-localize>Background off</label>
+                      <div class="with-check"><input type="color" name="bg_off" value="#2a2d33" /></div>
+                    </div>
+                    <div class="field">
+                      <label data-localize>Background on</label>
+                      <div class="with-check">
+                        <input type="color" name="bg_on" value="#f4b740" />
+                        <label class="check">
+                          <input type="checkbox" name="bg_on_auto" /><span data-localize>from entity</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label data-localize>Text off</label>
+                      <div class="with-check">
+                        <input type="color" name="text_off" value="#eceef0" />
+                        <label class="check">
+                          <input type="checkbox" name="text_off_auto" /><span data-localize>auto</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label data-localize>Text on</label>
+                      <div class="with-check">
+                        <input type="color" name="text_on" value="#14161a" />
+                        <label class="check">
+                          <input type="checkbox" name="text_on_auto" /><span data-localize>auto</span>
+                        </label>
+                      </div>
                     </div>
                   </div>
-                  <div class="field">
-                    <label data-localize>Icon on</label>
-                    <div class="icon-field">
-                      <span class="icon-preview" data-icon-preview="icon_on"></span>
-                      <input type="text" name="icon_on" placeholder="—" />
-                      <button type="button" data-icon-browse="icon_on" data-localize>Choose</button>
-                      <button type="button" data-pick-icon="icon_on" data-localize>File…</button>
-                      <button type="button" data-clear-icon="icon_on">✕</button>
+
+                  <div class="grid-2">
+                    <div class="field">
+                      <label data-localize>Icon off</label>
+                      <div class="icon-field">
+                        <span class="icon-preview" data-icon-preview="icon_off"></span>
+                        <input type="text" name="icon_off" placeholder="—" />
+                        <button type="button" data-icon-browse="icon_off" data-localize>Choose</button>
+                        <button type="button" data-pick-icon="icon_off" data-localize>File…</button>
+                        <button type="button" data-clear-icon="icon_off">✕</button>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label data-localize>Icon on</label>
+                      <div class="icon-field">
+                        <span class="icon-preview" data-icon-preview="icon_on"></span>
+                        <input type="text" name="icon_on" placeholder="—" />
+                        <button type="button" data-icon-browse="icon_on" data-localize>Choose</button>
+                        <button type="button" data-pick-icon="icon_on" data-localize>File…</button>
+                        <button type="button" data-clear-icon="icon_on">✕</button>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label data-localize>Icon size</label>
+                      <input type="number" name="icon_size" min="24" max="120" step="4" />
+                    </div>
+                    <div class="field">
+                      <label data-localize>Corner radius</label>
+                      <input type="number" name="radius" min="0" max="98" step="2" />
                     </div>
                   </div>
+
                   <div class="field">
-                    <label data-localize>Icon size</label>
-                    <input type="number" name="icon_size" min="24" max="120" step="4" />
+                    <label data-localize>Top text</label>
+                    <input type="text" name="top" placeholder="{{area}}" />
                   </div>
+                  <div class="grid-2">
+                    <div class="field">
+                      <label data-localize>Center text</label>
+                      <input type="text" name="center" placeholder="{{value}}" />
+                    </div>
+                    <div class="field">
+                      <label data-localize>Bottom text</label>
+                      <input type="text" name="bottom" placeholder="{{name}}" />
+                    </div>
+                  </div>
+                  <label class="check">
+                    <input type="checkbox" name="show_bar" />
+                    <span data-localize>Show fill bar (brightness, position, volume)</span>
+                  </label>
+                </div>
+
+                <div id="html-fields" class="hidden">
                   <div class="field">
-                    <label data-localize>Corner radius</label>
-                    <input type="number" name="radius" min="0" max="98" step="2" />
+                    <label data-localize>HTML template</label>
+                    <textarea name="html" spellcheck="false"></textarea>
                   </div>
+                  <button type="button" id="html-starter" data-localize>Insert example</button>
                 </div>
 
                 <div class="field">
-                  <label data-localize>Top text</label>
-                  <input type="text" name="top" placeholder="{{area}}" />
+                  <label data-localize>Redraw every (seconds)</label>
+                  <input type="number" name="refresh_interval" min="0" max="3600" step="5" />
                 </div>
-                <div class="grid-2">
-                  <div class="field">
-                    <label data-localize>Center text</label>
-                    <input type="text" name="center" placeholder="{{value}}" />
-                  </div>
-                  <div class="field">
-                    <label data-localize>Bottom text</label>
-                    <input type="text" name="bottom" placeholder="{{name}}" />
-                  </div>
-                </div>
-                <label class="check">
-                  <input type="checkbox" name="show_bar" />
-                  <span data-localize>Show fill bar (brightness, position, volume)</span>
-                </label>
-              </div>
-
-              <div id="html-fields" class="hidden">
-                <div class="field">
-                  <label data-localize>HTML template</label>
-                  <textarea name="html" spellcheck="false"></textarea>
-                  <p class="hint" data-localize="hint_html">
-                    Placeholders work here too. No JavaScript runs, and images or fonts must be data URLs.
-                  </p>
-                </div>
-                <button type="button" id="html-starter" data-localize>Insert example</button>
-              </div>
+              </details>
             </fieldset>
           </form>
+
         </section>
 
         <aside class="preview">

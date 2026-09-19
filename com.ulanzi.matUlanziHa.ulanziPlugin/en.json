@@ -215,6 +215,21 @@
     "Open control window": "Open control window",
     "Stop": "Stop",
     "Close": "Close",
-    "Tilt": "Tilt"
+    "Tilt": "Tilt",
+    "Display": "Display",
+    "Automatic — derived from the entity": "Automatic — derived from the entity",
+    "Automatic — icon and colour from the state": "Automatic — icon and colour from the state",
+    "Customise": "Customise",
+    "Back to automatic": "Back to automatic",
+    "Tile: colours, text, icons": "Tile: colours, text, icons",
+    "Rule": "Rule",
+    "The first rule that matches wins.": "The first rule that matches wins.",
+    "any of them": "any of them",
+    "all of them": "all of them",
+    "is unavailable": "is unavailable",
+    "Background": "Background",
+    "Earlier": "Earlier",
+    "Later": "Later",
+    "Remove this rule": "Remove this rule"
   }
 }

@@ -459,29 +459,22 @@
       showEmptyState();
     });
 
-    el('preset-pick').addEventListener('change', () => {
-      const wahl = String(el('preset-pick').value || '');
-      if (!wahl) return;
-      const punkt = wahl.indexOf('.');
-      const fields = el('button-form').elements;
-      fields.service_domain.value = wahl.slice(0, punkt);
-      fields.service_name.value = wahl.slice(punkt + 1);
-      // A different service takes different data; keeping the old would send
-      // keys the new one rejects.
-      fields.service_data.value = '';
-      commitButtonForm();
+    el('actions-customise').addEventListener('click', () => {
       const entry = library.button(selection.id);
-      if (entry) renderServicePresets(entry);
+      if (entry) materialiseActions(entry);
     });
-
-    el('switch-scope').addEventListener('change', () => {
+    el('actions-reset').addEventListener('click', () => {
       const entry = library.button(selection.id);
-      if (entry) renderSwitchEditor(entry);
+      if (entry) backToAuto(entry, { actions: [] });
     });
-    for (const id of ['switch-on', 'switch-off']) {
-      el(id).addEventListener('input', Utils.debounce(commitSwitchEditor, 250));
-      el(id).addEventListener('change', commitSwitchEditor);
-    }
+    el('rules-customise').addEventListener('click', () => {
+      const entry = library.button(selection.id);
+      if (entry) materialiseRules(entry);
+    });
+    el('rules-reset').addEventListener('click', () => {
+      const entry = library.button(selection.id);
+      if (entry) backToAuto(entry, { rules: [] });
+    });
 
     const buttonForm = el('button-form');
     buttonForm.addEventListener('input', Utils.debounce(commitButtonForm, 200));
@@ -775,7 +768,6 @@
     const own = entry.style || {};
 
     fields.name.value = entry.name || '';
-    fields.type.value = entry.type || 'toggle';
     fields.refresh_interval.value = Number(entry.refresh_interval) || 0;
     fields.group_rule.value =
       entry.group_rule === global.GROUP_RULES.all_on
@@ -797,11 +789,8 @@
     );
     fields.connection.value = entry.connection || (library.defaultConnection() || {}).id || '';
 
-    fields.service_domain.value = entry.service_domain || '';
-    fields.service_name.value = entry.service_name || '';
-    fields.service_data.value = entry.service_data || '';
-    fields.step_amount.value = entry.step_amount === undefined ? 1 : entry.step_amount;
-    fields.target_mode.value = ['context', 'button'].indexOf(entry.target_mode) !== -1 ? entry.target_mode : 'fixed';
+    fields.target_mode.value =
+      ['context', 'button'].indexOf(entry.target_mode) !== -1 ? entry.target_mode : 'fixed';
     fillOptions(
       fields.target_button,
       [{ id: '', name: '— ' + t('No button') + ' —' }].concat(
@@ -809,20 +798,12 @@
       )
     );
     fields.target_button.value = entry.target_button || '';
-    fields.long_press.value = entry.long_press || 'identify';
-    fillOptions(
-      fields.long_press_button,
-      [{ id: '', name: '— ' + t('No button') + ' —' }].concat(
-        library.sortedButtons().filter((other) => other.id !== entry.id)
-      )
-    );
-    fields.long_press_button.value = entry.long_press_button || '';
 
-    fields.open_target.value = entry.open_target || 'entity';
-    fields.open_dashboard.value = entry.open_dashboard || '';
-    fields.open_url.value = entry.open_url || '';
-    fillAreaOptions(fields.open_area, entry.connection);
-    fields.open_area.value = entry.open_area || '';
+    fields.group_rule.value =
+      entry.group_rule === global.GROUP_RULES.all_on
+        ? global.GROUP_RULES.all_on
+        : global.GROUP_RULES.any_on;
+    fields.refresh_interval.value = Number(entry.refresh_interval) || 0;
 
     fields.mode.value = style.mode;
     fields.bg_off.value = asColor(style.bg_off, '#2a2d33');
@@ -845,9 +826,9 @@
     fields.html.value = style.html || '';
 
     renderActionList(entry);
-    renderSwitchEditor(entry);
+    renderRuleList(entry);
     applyModeVisibility(style.mode);
-    applyTypeVisibility(fields.type.value);
+    applyTargetVisibility();
     applyGroupVisibility(global.Library.entitiesOf(entry).length);
     renderIconPreviews();
   }
@@ -890,26 +871,17 @@
       name: fields.name.value,
       folder: fields.folder.value,
       connection: fields.connection.value,
-      type: fields.type.value,
       refresh_interval: Number(fields.refresh_interval.value) || 0,
       group_rule: fields.group_rule.value,
-      service_domain: fields.service_domain.value.trim(),
-      service_name: fields.service_name.value.trim(),
-      service_data: fields.service_data.value,
-      step_amount: Number(fields.step_amount.value) || 0,
       target_mode: fields.target_mode.value,
       target_button: fields.target_button.value,
-      long_press: fields.long_press.value,
-      long_press_button: fields.long_press_button.value,
-      open_target: fields.open_target.value,
-      open_area: fields.open_area.value,
-      open_dashboard: fields.open_dashboard.value,
-      open_url: fields.open_url.value,
+      group_rule: fields.group_rule.value,
+      refresh_interval: Number(fields.refresh_interval.value) || 0,
       style: style
     });
 
     applyModeVisibility(style.mode);
-    applyTypeVisibility(fields.type.value);
+    applyTargetVisibility();
     renderIconPreviews();
     global.KeyStyle.clearImageCache();
     save();
@@ -924,168 +896,10 @@
     el('html-fields').classList.toggle('hidden', mode !== 'html');
   }
 
-  function applyTypeVisibility(type) {
-    el('interval-field').classList.toggle('hidden', type !== 'info');
-    el('open-fields').classList.toggle('hidden', type !== 'open');
-    el('service-fields').classList.toggle('hidden', type !== 'service');
-    el('step-field').classList.toggle('hidden', type !== 'step');
-    applyLongPressVisibility();
-    applyTargetVisibility();
-    const aktuell = library.button(selection.id);
-    if (aktuell) renderSwitchEditor(aktuell);
-    if (type === 'open') applyOpenVisibility();
-    if (type === 'service' || type === 'step') applyServiceHint();
-    const aktuellerButton = library.button(selection.id);
-    if (type === 'service' && aktuellerButton) renderServicePresets(aktuellerButton);
-  }
-
-  /**
-   * The "when switching" editor.
-   *
-   * Kept outside the main form on purpose: its two fields mean different things
-   * depending on the scope select — the button's default, or one entity's
-   * override — so a plain form round-trip would overwrite the wrong one.
-   */
-  function renderSwitchEditor(entry) {
-    const host = el('switch-fields');
-    if (!host) return;
-
-    const type = el('button-form').elements.type.value;
-    const entities = global.Library.entitiesOf(entry);
-    // Only a key that actually switches something has an on/off to describe.
-    host.classList.toggle('hidden', type !== 'toggle' || !entities.length);
-    if (type !== 'toggle' || !entities.length) return;
-
-    const scope = el('switch-scope');
-    const wanted = scope.value && entities.indexOf(scope.value) !== -1 ? scope.value : '';
-    fillOptions(
-      scope,
-      [{ id: '', name: t('All entities') }].concat(
-        entities.map((id) => ({ id: id, name: entityLabel(entry, id) + (hasOverride(entry, id) ? ' \u2022' : '') }))
-      )
-    );
-    scope.value = wanted;
-
-    const data = scopeData(entry, wanted);
-    el('switch-on').value = data.on;
-    el('switch-off').value = data.off;
-
-    // Colour and brightness without writing JSON. Only for lights, because
-    // that is the only domain whose turn_on takes them.
-    const proben = wanted ? [wanted] : entities;
-    const alleLichter = proben.length && proben.every((id) => id.indexOf('light.') === 0);
-    const presetHost = el('switch-preset-fields');
-    if (!alleLichter) {
-      presetHost.innerHTML = '';
-      return;
-    }
-
-    // The fields come from Home Assistant itself, so a new light feature shows
-    // up here without anyone maintaining a list.
-    const verbindung = pool.get(entry.connection) || pool.entries()[0];
-    ladeDienste(verbindung).then((katalog) => {
-      if (!katalog || selection.id !== entry.id) return;
-      const dienst = global.HaServices.find(katalog, 'light', 'turn_on');
-      const geparst = global.SwitchPlan.parseData(data.on);
-      renderPresetFields(presetHost, dienst, geparst.error ? {} : geparst.data, () => {
-        el('switch-on').value = mergeIntoJson(el('switch-on').value, dienst, collectPresetValues(presetHost));
-        commitSwitchEditor();
-      });
-    });
-    showSwitchProblem(entry);
-  }
-
   function entityLabel(entry, entityId) {
     const pooled = pool.get(entry.connection) || pool.entries()[0];
     const record = pooled && pooled.registry ? pooled.registry.get(entityId) : null;
     return record ? record.name : entityId;
-  }
-
-  function hasOverride(entry, entityId) {
-    const actions = entry.entity_actions || {};
-    const own = actions[entityId] || {};
-    return Boolean(String(own.on || '').trim() || String(own.off || '').trim());
-  }
-
-  function scopeData(entry, entityId) {
-    if (!entityId) {
-      return { on: entry.on_data || '', off: entry.off_data || '' };
-    }
-    const own = (entry.entity_actions || {})[entityId] || {};
-    return { on: own.on || '', off: own.off || '' };
-  }
-
-  /** Writes the two fields back into whichever scope is selected. */
-  function commitSwitchEditor() {
-    const entry = library.button(selection.id);
-    if (!entry) return;
-
-    const scope = el('switch-scope').value;
-    const on = el('switch-on').value;
-    const off = el('switch-off').value;
-
-    if (!scope) {
-      library.updateButton(entry.id, { on_data: on, off_data: off });
-    } else {
-      const actions = Object.assign({}, entry.entity_actions || {});
-      if (String(on).trim() || String(off).trim()) {
-        actions[scope] = { on: on, off: off };
-      } else {
-        delete actions[scope];
-      }
-      library.updateButton(entry.id, { entity_actions: actions });
-    }
-
-    showSwitchProblem(library.button(entry.id));
-    save();
-    renderPreview();
-  }
-
-  /**
-   * A colour and a colour temperature in the same call contradict each other —
-   * Home Assistant honours one and drops the other without saying so.
-   * @returns {string} the warning, or an empty string
-   */
-  function farbKonflikt(json) {
-    const parsed = global.SwitchPlan.parseData(json);
-    const data = parsed.error ? null : parsed.data;
-    if (!data) return '';
-    const hatFarbe = data.rgb_color || data.rgbw_color || data.rgbww_color || data.hs_color || data.xy_color;
-    const hatTemperatur = data.color_temp_kelvin !== undefined || data.color_temp !== undefined;
-    return hatFarbe && hatTemperatur ? t('Colour and colour temperature exclude each other — Home Assistant will use only one.') : '';
-  }
-
-  /** Names the first broken JSON, because a bad one silently switches nothing. */
-  function showSwitchProblem(entry) {
-    const hint = el('switch-hint');
-    if (!hint || !entry) return;
-
-    const kandidaten = [
-      [t('On'), entry.on_data],
-      [t('Off'), entry.off_data]
-    ];
-    for (const id of Object.keys(entry.entity_actions || {})) {
-      const own = entry.entity_actions[id] || {};
-      kandidaten.push([id + ' ' + t('On'), own.on]);
-      kandidaten.push([id + ' ' + t('Off'), own.off]);
-    }
-
-    for (const [wo, json] of kandidaten) {
-      const parsed = global.SwitchPlan.parseData(json);
-      if (parsed.error) {
-        hint.textContent = wo + ': ' + t('Data is not valid JSON') + ' \u2014 ' + parsed.error;
-        hint.classList.add('bad');
-        return;
-      }
-    }
-    const konflikt = farbKonflikt(entry.on_data) || farbKonflikt(entry.off_data);
-    if (konflikt) {
-      hint.textContent = konflikt;
-      hint.classList.add('bad');
-      return;
-    }
-    hint.classList.remove('bad');
-    hint.textContent = t('Leave empty for a plain toggle. Per entity beats the setting for all.');
   }
 
   /**
@@ -1268,65 +1082,6 @@
     el('target-button-field').classList.toggle('hidden', fields.target_mode.value !== 'button');
   }
 
-  function applyLongPressVisibility() {
-    const fields = el('button-form').elements;
-    el('long-press-button-field').classList.toggle(
-      'hidden',
-      fields.long_press.value !== 'button'
-    );
-  }
-
-  /**
-   * Offers ready-made actions for the chosen entity and fills domain, service
-   * and data from them — hand-written JSON stays possible, but is no longer
-   * the only way in.
-   */
-  function renderServicePresets(entry) {
-    const fields = el('button-form').elements;
-    const pick = el('preset-pick');
-    const host = el('preset-fields');
-    if (!pick || !host) return;
-
-    const entityId = global.Library.entitiesOf(entry)[0] || '';
-    const verbindung = pool.get(entry.connection) || pool.entries()[0];
-
-    ladeDienste(verbindung).then((katalog) => {
-      // Still the right button? The user may have clicked on while we waited.
-      if (!katalog || selection.id !== entry.id) return;
-
-      const angebote = global.HaServices.servicesFor(katalog, entityId);
-      const gewaehlt = fields.service_domain.value + '.' + fields.service_name.value;
-
-      fillOptions(
-        pick,
-        [{ id: '', name: '— ' + t('Own service') + ' —' }].concat(
-          angebote.map((dienst) => ({
-            id: dienst.domain + '.' + dienst.service,
-            name: dienst.domain + '.' + dienst.service + (dienst.label ? ' — ' + dienst.label : '')
-          }))
-        )
-      );
-      pick.value = angebote.some((d) => d.domain + '.' + d.service === gewaehlt) ? gewaehlt : '';
-
-      const dienst = global.HaServices.find(
-        katalog,
-        fields.service_domain.value,
-        fields.service_name.value
-      );
-      const geparst = global.SwitchPlan.parseData(fields.service_data.value);
-      renderPresetFields(host, dienst, geparst.error ? {} : geparst.data, () => {
-        fields.service_data.value = mergeIntoJson(fields.service_data.value, dienst, collectPresetValues(host));
-        commitButtonForm();
-      });
-
-      const hinweis = el('service-hint');
-      if (hinweis && dienst && dienst.partial) {
-        hinweis.textContent = t('Some fields of this service are only reachable through the JSON below.');
-      }
-    });
-  }
-
-  /** One catalogue per connection, fetched once — services rarely change. */
   const ladeDienste = global.HaServices.loader({ log: () => {} });
 
   /**
@@ -1334,6 +1089,107 @@
    * it is editing and takes the result back.
    */
   let aktionsListe = null;
+
+  /**
+   * Automatic until you ask otherwise.
+   *
+   * A button with an empty list behaves exactly as it always did — the domain
+   * decides. "Customise" fills the list with what that automatic behaviour
+   * would do, so the first editable row is never a blank one.
+   */
+  function renderAutoState(entry) {
+    const hatAktionen = (entry.actions || []).length > 0;
+    const hatRegeln = (entry.rules || []).length > 0;
+
+    el('actions-auto').classList.toggle('hidden', hatAktionen);
+    el('action-list').classList.toggle('hidden', !hatAktionen);
+    el('actions-reset').classList.toggle('hidden', !hatAktionen);
+
+    el('rules-auto').classList.toggle('hidden', hatRegeln);
+    el('rule-list').classList.toggle('hidden', !hatRegeln);
+    el('rules-reset').classList.toggle('hidden', !hatRegeln);
+  }
+
+  /** Turns the automatic behaviour into rows you can edit. */
+  function materialiseActions(entry) {
+    const entities = global.Library.entitiesOf(entry);
+    const erste = entities[0] || '';
+    const domain = erste.split('.')[0];
+
+    const vorschlag = domain
+      ? [
+          {
+            id: 'act-' + Date.now().toString(36),
+            trigger: 'press',
+            kind: 'service',
+            entity: '',
+            domain: domain === 'cover' ? 'cover' : 'homeassistant',
+            service: 'toggle',
+            data: ''
+          }
+        ]
+      : [];
+    library.updateButton(entry.id, { actions: vorschlag });
+    save();
+    fillButtonForm(library.button(entry.id));
+  }
+
+  function materialiseRules(entry) {
+    const erste = global.Library.entitiesOf(entry)[0] || '';
+    const vorschlag = global.DisplayRules.suggest(erste).map((rule, i) =>
+      Object.assign({ id: 'rule-' + Date.now().toString(36) + i }, rule)
+    );
+    library.updateButton(entry.id, { rules: vorschlag });
+    save();
+    fillButtonForm(library.button(entry.id));
+  }
+
+  function backToAuto(entry, feld) {
+    library.updateButton(entry.id, feld);
+    save();
+    fillButtonForm(library.button(entry.id));
+    renderPreview();
+  }
+
+  let regelListe = null;
+
+  function renderRuleList(entry) {
+    const host = el('rule-list');
+    if (!host || !entry) return;
+
+    if (!regelListe) {
+      regelListe = new global.RuleList({
+        host: host,
+        t: t,
+        entitiesOf: () => {
+          const aktuell = library.button(selection.id);
+          return aktuell ? global.Library.entitiesOf(aktuell) : [];
+        },
+        labelOf: (entityId) => {
+          const aktuell = library.button(selection.id);
+          return aktuell ? entityLabel(aktuell, entityId) : entityId;
+        },
+        attributesOf: () => {
+          const aktuell = library.button(selection.id);
+          if (!aktuell) return [];
+          const verbindung = pool.get(aktuell.connection) || pool.entries()[0];
+          const erste = global.Library.entitiesOf(aktuell)[0];
+          const zustand = verbindung && erste ? verbindung.client.getState(erste) : null;
+          return zustand && zustand.attributes ? Object.keys(zustand.attributes).sort() : [];
+        },
+        pickIcon: (aktuell, fertig) => openIconBrowserFor(aktuell, fertig),
+        onChange: (rules) => {
+          if (!selection.id) return;
+          library.updateButton(selection.id, { rules: rules });
+          save();
+          renderPreview();
+        }
+      });
+    }
+
+    regelListe.set(entry.rules || []);
+    renderAutoState(entry);
+  }
 
   function renderActionList(entry) {
     const host = el('action-list');
@@ -1372,65 +1228,7 @@
   }
 
 
-  /** Tells at a glance whether the JSON parses and what the key will send. */
-  function applyServiceHint() {
-    const fields = el('button-form').elements;
-    const hint = el('service-hint');
-    if (!hint) return;
-
-    const raw = String(fields.service_data.value || '').trim();
-    if (raw) {
-      try {
-        JSON.parse(raw);
-      } catch (err) {
-        hint.textContent = t('Data is not valid JSON') + ': ' + err.message;
-        hint.classList.add('bad');
-        return;
-      }
-    }
-    hint.classList.remove('bad');
-    const call =
-      (fields.service_domain.value.trim() || '?') + '.' + (fields.service_name.value.trim() || '?');
-    hint.textContent =
-      t('Sends') + ' ' + call + ' ' + (raw ? raw : '{}');
-  }
-
-  /** Only the field that matches the chosen jump target, plus a live preview. */
-  function applyOpenVisibility() {
-    const fields = el('button-form').elements;
-    const target = fields.open_target.value;
-    el('open-area-field').classList.toggle('hidden', target !== 'area');
-    el('open-dashboard-field').classList.toggle('hidden', target !== 'dashboard');
-    el('open-url-field').classList.toggle('hidden', target !== 'url');
-
-    const entry = library.button(selection.id) || {};
-    const connection = library.connection(fields.connection.value) || library.defaultConnection();
-    const url = global.HaLinks.build(connection ? connection.url : '', {
-      target: target,
-      entityId: global.Library.entitiesOf(entry)[0] || '',
-      area: fields.open_area.value,
-      dashboard: fields.open_dashboard.value,
-      url: fields.open_url.value
-    });
-    el('open-preview').textContent = url || t('Nothing to open — check the button');
-  }
-
-  /** Rooms of the chosen connection, sorted like everywhere else: floor, room. */
-  function fillAreaOptions(select, connectionId) {
-    const entry = pool.get(connectionId) || pool.entries()[0];
-    const areas = entry && entry.registry ? entry.registry.areas() : [];
-    fillOptions(
-      select,
-      [{ id: '', name: '— ' + t('No room') + ' —' }].concat(
-        areas.map((area) => ({
-          id: area.id,
-          name: area.floor ? area.floor + ' › ' + area.name : area.name
-        }))
-      )
-    );
-  }
-
-  function applyGroupVisibility(entityCount) {
+    function applyGroupVisibility(entityCount) {
     el('group-rule-field').classList.toggle('hidden', entityCount < 2);
   }
 
@@ -1505,7 +1303,7 @@
     library.updateButton(selection.id, { entities: entities, entity_id: entities[0] || '' });
     save();
     renderChips(library.button(selection.id));
-    renderSwitchEditor(library.button(selection.id));
+    renderRuleList(library.button(selection.id));
     renderSidebar();
     renderPreview();
     if (picker) picker.setSelected(entities);
@@ -1540,6 +1338,16 @@
   }
 
   // --- icon browser ---------------------------------------------------------
+
+  /** Opens the icon browser for a rule row instead of a form field. */
+  function openIconBrowserFor(current, fertig) {
+    iconBrowserField = null;
+    iconBrowserDone = fertig;
+    el('icon-browser').classList.remove('hidden');
+    el('icon-search').value = '';
+    renderIconGrid();
+    el('icon-search').focus();
+  }
 
   function openIconBrowser(field) {
     iconBrowserField = field;
@@ -1591,6 +1399,13 @@
       cell.appendChild(label);
 
       cell.addEventListener('click', () => {
+        if (iconBrowserDone) {
+          const fertig = iconBrowserDone;
+          iconBrowserDone = null;
+          fertig('mdi:' + name);
+          closeIconBrowser();
+          return;
+        }
         el('button-form').elements[iconBrowserField].value = 'mdi:' + name;
         commitButtonForm();
         closeIconBrowser();
