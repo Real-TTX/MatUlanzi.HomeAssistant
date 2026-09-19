@@ -200,6 +200,9 @@
     "Remove this action": "Remove this action",
     "Some fields of this service are only reachable through the JSON below.": "Some fields of this service are only reachable through the JSON below.",
     "Send this field": "Send this field",
-    "Colour and colour temperature exclude each other — Home Assistant will use only one.": "Colour and colour temperature exclude each other — Home Assistant will use only one."
+    "Colour and colour temperature exclude each other — Home Assistant will use only one.": "Colour and colour temperature exclude each other — Home Assistant will use only one.",
+    "Control window (knobs on the PC)": "Control window (knobs on the PC)",
+    "No connection configured": "No connection configured",
+    "now": "now"
   }
 }

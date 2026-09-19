@@ -1,0 +1,97 @@
+/* A menu-sized window: everything has to fit without scrolling. */
+.ha-control-body {
+  margin: 0;
+  padding: 12px 14px;
+  font: 13px 'Segoe UI', sans-serif;
+  background: #1e1f22;
+  color: #eceef0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 24px);
+}
+
+.ha-control-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ha-control-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ha-control-room {
+  font-size: 12px;
+  color: #8b9099;
+}
+
+.ha-control-head .ha-btn {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+main {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ha-control-foot {
+  display: flex;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #2c2f35;
+  font-size: 12px;
+  color: #8b9099;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.ha-big {
+  display: flex;
+  gap: 8px;
+}
+
+.ha-big button {
+  flex: 1;
+  padding: 12px 6px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  color: #d5d8dc;
+  cursor: pointer;
+}
+
+.ha-big button:hover {
+  border-color: #6f747c;
+}
+
+.ha-big button.on {
+  background: #f4b740;
+  border-color: #f4b740;
+  color: #14161a;
+  font-weight: 600;
+}
+
+.ha-row-label {
+  font-size: 12px;
+  color: #b9bdc4;
+  margin-bottom: 4px;
+}
+
+.ha-reading {
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ha-reading small {
+  font-size: 13px;
+  color: #8b9099;
+}

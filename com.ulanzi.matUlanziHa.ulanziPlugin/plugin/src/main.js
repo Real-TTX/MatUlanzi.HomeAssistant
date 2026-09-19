@@ -38,6 +38,14 @@
     senderUuid: PLUGIN_UUID + '.designer'
   });
 
+  // Its own uuid again, and a different one from the designer, so closing
+  // either window cannot take the other down with it.
+  const control = new global.ControlWindow({
+    ud: $UD,
+    log: log,
+    senderUuid: PLUGIN_UUID + '.control'
+  });
+
   /** Connections + button definitions, mirrored from the global settings. */
   let library = new global.Library({});
   let librarySignature = '';
@@ -77,6 +85,7 @@
         renderer: renderer,
         i18n: i18n,
       targets: targets,
+      control: control,
         log: log
       });
       actions.set(context, action);
@@ -300,6 +309,15 @@
       }
       return;
     }
+    if (payload.request === 'control:hello' || payload.request === 'control:ping') {
+      control.noteAlive(message.context, payload.entity);
+      return;
+    }
+    if (payload.request === 'control:bye') {
+      control.noteClosed();
+      return;
+    }
+
     if (payload.request === 'designer:bye') {
       designer.noteClosed();
       requestGlobalSettings();
@@ -350,6 +368,7 @@
     paints: () => global.KEY_PAINT_LOG,
     targets: targets,
     designer: designer,
+    control: control,
     repaintAll: () => {
       for (const action of actions.values()) action.forceRepaint();
       return actions.size;

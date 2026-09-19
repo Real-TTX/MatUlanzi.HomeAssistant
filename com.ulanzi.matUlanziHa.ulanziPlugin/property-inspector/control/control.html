@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MatUlanzi.HomeAssistant — Control</title>
+    <link rel="stylesheet" href="../common/pi.css?v=1" />
+    <link rel="stylesheet" href="control.css?v=1" />
+    <script src="../../libs/js/constants.js"></script>
+    <script src="../../libs/js/eventEmitter.js"></script>
+    <script src="../../libs/js/timers.js"></script>
+    <script src="../../libs/js/utils.js"></script>
+    <script src="../../libs/js/ulanziApi.js"></script>
+    <!-- Runtime query: Studio serves plugin files from cache. -->
+    <script>
+      (function () {
+        var version = Date.now();
+        var files = [
+          '../../plugin/src/error-trap.js',
+          '../../plugin/src/ha-client.js',
+          '../../plugin/src/ha-registry.js',
+          '../../plugin/src/ha-domains.js',
+          '../../plugin/src/i18n.js',
+          '../common/color-controls.js'
+        ];
+        for (var i = 0; i < files.length; i++) {
+          document.write('<script src="' + files[i] + '?v=' + version + '"><\/script>');
+        }
+        window.__assetVersion = version;
+      })();
+    </script>
+  </head>
+  <body class="ha-control-body">
+    <header class="ha-control-head">
+      <div>
+        <div class="ha-control-name" id="name">…</div>
+        <div class="ha-control-room" id="room"></div>
+      </div>
+      <button type="button" class="ha-btn" id="close" data-localize>Done</button>
+    </header>
+
+    <main id="panel"></main>
+
+    <footer class="ha-control-foot">
+      <span id="state"></span>
+      <span class="spacer"></span>
+      <span id="status"></span>
+    </footer>
+
+    <script>
+      document.write(
+        '<script src="control.js?v=' + (window.__assetVersion || Date.now()) + '"><\/script>'
+      );
+    </script>
+  </body>
+</html>

@@ -304,6 +304,31 @@ Das ist bewusst die Übersetzung des „Smart Dialer"-Musters anderer Plugins au
 ein Tastenfeld. Der echte Dialer braucht einen Encoder; dieses Gerät ist laut
 Studios eigener Konfiguration ein `Ulanzi Deck 5x3` ohne Drehknöpfe.
 
+### Steuerfenster: die Regler am Rechner
+
+Ein Button vom Typ „Steuerfenster" öffnet beim Druck ein kleines Fenster mit
+genau den Reglern, die das Gerät hat. Die Werte stammen aus der Entität selbst,
+nicht aus Annahmen:
+
+```
+Thermostat   An/Aus · Solltemperatur 23° (jetzt 22°)
+             − 0.5°  + 0.5°      ← Schrittweite aus target_temp_step
+             off · fan_only · heat · cool   ← aus hvac_modes
+
+Lampe        An/Aus · Helligkeit · Farbe (Farbwähler) · Farbtemperatur
+Rollo        ▲ ■ ▼ · Position
+Media        ⏮ ⏯ ⏭ · Lautstärke
+```
+
+Das Fenster ist 420×520 groß und lässt sich pro Button positionieren; `openView`
+beachtet beides genau. Ein zweiter Tastendruck auf ein anderes Gerät **lenkt das
+offene Fenster um**, statt ein zweites zu öffnen.
+
+Es hängt an einer eigenen uuid (`…matUlanziHa.control`), getrennt von der des
+Designers — sonst reißt das Schließen des einen Fensters die Host-Buchhaltung
+des anderen mit (siehe designer-window.js). Schieberegler senden gebündelt,
+damit Ziehen nicht jede Zwischenstufe an Home Assistant schickt.
+
 ### Kein Untermenü auf dem Gerät
 
 Ein Untermenü, das sich auf Nachbartasten legt, ist mit diesem Host nicht

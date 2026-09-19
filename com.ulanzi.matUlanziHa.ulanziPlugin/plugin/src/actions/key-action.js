@@ -29,6 +29,8 @@
       this.i18n = deps.i18n;
       // Shared by every key: the device a context key currently follows.
       this.targets = deps.targets || null;
+      /** The shared control popup, opened by keys of type "control". */
+      this.control = deps.control || null;
       this._log = deps.log || function () {};
 
       this.settings = {};
@@ -162,6 +164,10 @@
       }
       if (def && def.type === 'service') {
         await this.callConfiguredService(def);
+        return;
+      }
+      if (def && def.type === 'control') {
+        this.openControl(def);
         return;
       }
       if (def && def.type === 'step') {
@@ -340,6 +346,31 @@
       await this._withBusy(async () => {
         await entry.client.callService(spec.domain, spec.name, data, scope);
       }, def);
+    }
+
+    /**
+     * Opens the control popup for whatever this key points at.
+     *
+     * An on-device submenu is impossible on this hardware (the host lets a
+     * plugin paint only its own keys and offers no page switching), so the
+     * knobs appear on the computer instead.
+     */
+    openControl(def) {
+      const target = this.effectiveTarget(def);
+      if (!target || !this.control) {
+        this.$UD.showAlert(this.context);
+        this.$UD.toast(this.i18n.t('No entity'));
+        return;
+      }
+      const entry = this.targetConnection(target, def);
+      const record = entry ? entry.registry.get(target.entityId) : null;
+      this.control.open({
+        entityId: target.entityId,
+        connectionId: entry ? entry.id : def.connection,
+        name: def.label || def.name || target.name || (record && record.name) || '',
+        x: def.controlX,
+        y: def.controlY
+      });
     }
 
     /** Nudges the target up or down — the keypad stand-in for a rotary dial. */
@@ -626,7 +657,7 @@
 
       // An 'open' key pointing at a room or dashboard has no entity on purpose,
       // and a service key may target nothing at all (notify.*, script.*).
-      if (!def.entityIds.length && (def.type === 'open' || def.type === 'service')) {
+      if (!def.entityIds.length && (def.type === 'open' || def.type === 'service' || def.type === 'control')) {
         return {
           ctx: { name: def.label || def.name || t('Open'), value: '' },
           unavailable: false
