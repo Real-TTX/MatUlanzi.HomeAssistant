@@ -452,6 +452,38 @@
         check('i18n de', new I18n('de_DE').t('On') === 'An');
         check('i18n Fallback en', new I18n('fr_FR').t('On') === 'On');
 
+        section('Tastengruppe: Nachbartasten folgen einem Leitbutton');
+        {
+          const lib = Library.parse({
+            connections: [{ id: 'c1', name: 'HA', url: 'http://ha:8123', token: 't' }],
+            buttons: [
+              { id: 'b-klima', name: 'Klima Büro', connection: 'c1', entities: ['climate.buero'], type: 'info' },
+              { id: 'b-plus', name: '+', connection: 'c1', entities: [], type: 'step', step_amount: 0.5, target_mode: 'button', target_button: 'b-klima' },
+              { id: 'b-minus', name: '−', connection: 'c1', entities: [], type: 'step', step_amount: -0.5, target_mode: 'button', target_button: 'b-klima' },
+              { id: 'b-lose', name: 'Lose', connection: 'c1', entities: [], type: 'step', target_mode: 'button', target_button: '' }
+            ]
+          });
+
+          const plus = lib.resolveKey({ button: 'b-plus' });
+          check('Folge-Modus wird übernommen', plus.targetMode === 'button');
+          check('und der Leitbutton', plus.targetButton === 'b-klima');
+          check('die Folge-Taste hat selbst keine Entität', plus.entityIds.length === 0);
+
+          const lead = lib.resolveKey({ button: plus.targetButton });
+          check('der Leitbutton lässt sich auflösen', Boolean(lead));
+          check('und trägt die Entität', lead.entityIds[0] === 'climate.buero');
+          check('Schrittweite bleibt an der Folge-Taste', plus.stepAmount === 0.5);
+          check('und die Richtung stimmt', lib.resolveKey({ button: 'b-minus' }).stepAmount === -0.5);
+
+          const lose = lib.resolveKey({ button: 'b-lose' });
+          check('ohne Leitbutton bleibt der Verweis leer', lose.targetButton === '');
+          check('und nichts lässt sich auflösen', lib.resolveKey({ button: lose.targetButton }) === null);
+
+          const fest = lib.resolveKey({ button: 'b-klima' });
+          check('der Leitbutton selbst wirkt auf sich', fest.targetMode === 'fixed');
+          check('unbekannter Modus fällt auf fest zurück', Library.parse({ buttons: [{ id: 'x', target_mode: 'quatsch', entities: ['light.a'] }] }).resolveKey({ button: 'x' }).targetMode === 'fixed');
+        }
+
         section('Aktionsliste: wann, worauf, was');
         {
           const lib = Library.parse({

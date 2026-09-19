@@ -206,6 +206,12 @@
     "Colour and colour temperature exclude each other — Home Assistant will use only one.": "Farbe und Farbtemperatur schließen sich aus — Home Assistant nimmt nur eines davon.",
     "Control window (knobs on the PC)": "Steuerfenster (Regler am PC)",
     "No connection configured": "Keine Verbindung eingerichtet",
-    "now": "jetzt"
+    "now": "jetzt",
+    "Fan": "Lüfter",
+    "Swing": "Schwenken",
+    "Preset": "Voreinstellung",
+    "The device of another button": "Das Gerät eines anderen Buttons",
+    "Follows this button": "Folgt diesem Button",
+    "hint_follow": "Leitbutton und diesen nebeneinander auf das Deck legen."
   }
 }

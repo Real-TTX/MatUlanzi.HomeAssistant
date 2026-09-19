@@ -95,3 +95,23 @@ main {
   font-size: 13px;
   color: #8b9099;
 }
+
+/* Six hvac modes do not fit on one line. */
+.ha-big.wrap {
+  flex-wrap: wrap;
+}
+
+.ha-big.wrap button {
+  flex: 1 1 30%;
+  padding: 8px 4px;
+  font-size: 13px;
+}
+
+.ha-control-select {
+  width: 100%;
+  padding: 7px;
+  border-radius: 6px;
+  border: 1px solid #3a3d43;
+  background: #26282d;
+  color: #d5d8dc;
+}

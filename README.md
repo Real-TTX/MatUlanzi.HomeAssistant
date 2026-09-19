@@ -304,6 +304,30 @@ Das ist bewusst die Übersetzung des „Smart Dialer"-Musters anderer Plugins au
 ein Tastenfeld. Der echte Dialer braucht einen Encoder; dieses Gerät ist laut
 Studios eigener Konfiguration ein `Ulanzi Deck 5x3` ohne Drehknöpfe.
 
+### Tastengruppen: Nachbartasten folgen einer Leittaste
+
+Eine Taste kann auf **das Gerät einer anderen Taste** wirken. Damit wird aus
+drei nebeneinander gelegten Tasten eine Bedieneinheit:
+
+```
+[ − 0.5° ]      [ Klima Büro  23° ]      [ + 0.5° ]
+  folgt              Leittaste             folgt
+```
+
+Die Folge-Tasten brauchen keine eigene Entität und **zeigen den Livewert der
+Leittaste mit** — im Test stand auf der „+"-Taste ebenfalls „Klima Büro 23°".
+Ein Druck schickte `climate.set_temperature {temperature: 23.5}` an die Entität
+der Leittaste, „−" entsprechend 22.5.
+
+Das Muster passt auf alles: Helligkeit ±10 % neben einer Lampe, Position neben
+einem Rollo, Lautstärke neben einem Lautsprecher. Ein langer Druck auf der
+Leittaste kann zusätzlich einen beliebigen anderen Button ausführen.
+
+Das ist übrigens die ehrliche Antwort auf „Untermenü": Nachbartasten, die
+*unsere* Action tragen, dürfen wir bemalen und ihre Drücke empfangen. Nur an
+fremde Tasten kommt man nicht heran — und Seiten umschalten kann ein Plugin
+nicht.
+
 ### Steuerfenster: die Regler am Rechner
 
 Ein Button vom Typ „Steuerfenster" öffnet beim Druck ein kleines Fenster mit
@@ -313,7 +337,8 @@ nicht aus Annahmen:
 ```
 Thermostat   An/Aus · Solltemperatur 23° (jetzt 22°)
              − 0.5°  + 0.5°      ← Schrittweite aus target_temp_step
-             off · fan_only · heat · cool   ← aus hvac_modes
+             off · fan_only · heat · cool · heat_cool · dry  ← alle aus hvac_modes
+             Lüfter · Schwenken · Voreinstellung als Auswahl
 
 Lampe        An/Aus · Helligkeit · Farbe (Farbwähler) · Farbtemperatur
 Rollo        ▲ ■ ▼ · Position

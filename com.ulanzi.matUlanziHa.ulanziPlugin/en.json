@@ -203,6 +203,12 @@
     "Colour and colour temperature exclude each other — Home Assistant will use only one.": "Colour and colour temperature exclude each other — Home Assistant will use only one.",
     "Control window (knobs on the PC)": "Control window (knobs on the PC)",
     "No connection configured": "No connection configured",
-    "now": "now"
+    "now": "now",
+    "Fan": "Fan",
+    "Swing": "Swing",
+    "Preset": "Preset",
+    "The device of another button": "The device of another button",
+    "Follows this button": "Follows this button",
+    "hint_follow": "Put the lead key and this one next to each other on the deck."
   }
 }

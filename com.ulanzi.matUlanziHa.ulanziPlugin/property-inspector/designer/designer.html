@@ -163,7 +163,15 @@
                   <select name="target_mode">
                     <option value="fixed" data-localize>Its own entity</option>
                     <option value="context" data-localize>The device last picked (context)</option>
+                    <option value="button" data-localize>The device of another button</option>
                   </select>
+                </div>
+                <div class="field hidden" id="target-button-field">
+                  <label data-localize>Follows this button</label>
+                  <select name="target_button"></select>
+                  <p class="hint" data-localize="hint_follow">
+                    Put the lead key and this one next to each other on the deck.
+                  </p>
                 </div>
                 <div class="field">
                   <label data-localize>Long press</label>

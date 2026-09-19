@@ -248,6 +248,23 @@
     }
   }
 
+  /** A dropdown for lists that are too long for buttons — seven fan speeds. */
+  function selectRow(labelText, options, current, run) {
+    const wrap = section(labelText);
+    const select = doc.createElement('select');
+    select.className = 'ha-control-select';
+    for (const value of options) {
+      const node = doc.createElement('option');
+      node.value = value;
+      node.textContent = value;
+      select.appendChild(node);
+    }
+    select.value = current === undefined || current === null ? '' : current;
+    select.addEventListener('change', () => run(select.value));
+    wrap.appendChild(select);
+    return wrap;
+  }
+
   function renderClimate(panel, state, attrs) {
     const soll = Number(attrs.temperature);
     const ist = Number(attrs.current_temperature);
@@ -257,8 +274,7 @@
     const wert = element('div', 'ha-reading');
     wert.textContent = isFinite(soll) ? soll + '\u00b0' : '--';
     if (isFinite(ist)) {
-      const klein = element('small', '', '  ' + t('now') + ' ' + ist + '\u00b0');
-      wert.appendChild(klein);
+      wert.appendChild(element('small', '', '  ' + t('now') + ' ' + ist + '\u00b0'));
     }
     anzeige.appendChild(wert);
     panel.appendChild(anzeige);
@@ -267,6 +283,8 @@
       const min = isFinite(Number(attrs.min_temp)) ? Number(attrs.min_temp) : 7;
       const max = isFinite(Number(attrs.max_temp)) ? Number(attrs.max_temp) : 35;
       const setzen = (wunsch) => {
+        // Clamped to what the device itself reports: Home Assistant drops an
+        // out-of-range value without a word.
         const gekappt = Math.min(Math.max(Math.round(wunsch * 10) / 10, min), max);
         call('climate', 'set_temperature', { temperature: gekappt });
       };
@@ -278,19 +296,45 @@
       );
     }
 
+    // Every mode the device offers, not a truncated few: an air conditioner
+    // that can dry or heat_cool must show it.
     const modi = attrs.hvac_modes || [];
     if (modi.length) {
       const wahl = section(t('Mode'));
-      wahl.appendChild(
-        buttonRow(
-          modi.slice(0, 4).map((modus) => ({
-            label: modus,
-            active: state.state === modus,
-            run: () => call('climate', 'set_hvac_mode', { hvac_mode: modus })
-          }))
+      const reihe = buttonRow(
+        modi.map((modus) => ({
+          label: modus,
+          active: state.state === modus,
+          run: () => call('climate', 'set_hvac_mode', { hvac_mode: modus })
+        }))
+      );
+      reihe.classList.add('wrap');
+      wahl.appendChild(reihe);
+      panel.appendChild(wahl);
+    }
+
+    if ((attrs.fan_modes || []).length > 1) {
+      panel.appendChild(
+        selectRow(t('Fan'), attrs.fan_modes, attrs.fan_mode, (wert2) =>
+          call('climate', 'set_fan_mode', { fan_mode: wert2 })
         )
       );
-      panel.appendChild(wahl);
+    }
+
+    if ((attrs.swing_modes || []).length > 1) {
+      panel.appendChild(
+        selectRow(t('Swing'), attrs.swing_modes, attrs.swing_mode, (wert2) =>
+          call('climate', 'set_swing_mode', { swing_mode: wert2 })
+        )
+      );
+    }
+
+    if ((attrs.preset_modes || []).length > 1) {
+      panel.appendChild(
+        selectRow(t('Preset'), attrs.preset_modes, attrs.preset_mode, (wert2) =>
+          call('climate', 'set_preset_mode', { preset_mode: wert2 })
+        )
+      );
     }
   }
 

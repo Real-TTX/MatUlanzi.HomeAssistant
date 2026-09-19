@@ -801,7 +801,14 @@
     fields.service_name.value = entry.service_name || '';
     fields.service_data.value = entry.service_data || '';
     fields.step_amount.value = entry.step_amount === undefined ? 1 : entry.step_amount;
-    fields.target_mode.value = entry.target_mode === 'context' ? 'context' : 'fixed';
+    fields.target_mode.value = ['context', 'button'].indexOf(entry.target_mode) !== -1 ? entry.target_mode : 'fixed';
+    fillOptions(
+      fields.target_button,
+      [{ id: '', name: '— ' + t('No button') + ' —' }].concat(
+        library.sortedButtons().filter((other) => other.id !== entry.id)
+      )
+    );
+    fields.target_button.value = entry.target_button || '';
     fields.long_press.value = entry.long_press || 'identify';
     fillOptions(
       fields.long_press_button,
@@ -891,6 +898,7 @@
       service_data: fields.service_data.value,
       step_amount: Number(fields.step_amount.value) || 0,
       target_mode: fields.target_mode.value,
+      target_button: fields.target_button.value,
       long_press: fields.long_press.value,
       long_press_button: fields.long_press_button.value,
       open_target: fields.open_target.value,
@@ -922,6 +930,7 @@
     el('service-fields').classList.toggle('hidden', type !== 'service');
     el('step-field').classList.toggle('hidden', type !== 'step');
     applyLongPressVisibility();
+    applyTargetVisibility();
     const aktuell = library.button(selection.id);
     if (aktuell) renderSwitchEditor(aktuell);
     if (type === 'open') applyOpenVisibility();
@@ -1254,6 +1263,11 @@
   }
 
   /** The button picker only matters when the long press should run one. */
+  function applyTargetVisibility() {
+    const fields = el('button-form').elements;
+    el('target-button-field').classList.toggle('hidden', fields.target_mode.value !== 'button');
+  }
+
   function applyLongPressVisibility() {
     const fields = el('button-form').elements;
     el('long-press-button-field').classList.toggle(

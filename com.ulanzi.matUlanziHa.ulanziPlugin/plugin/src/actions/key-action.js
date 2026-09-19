@@ -87,7 +87,7 @@
 
       // A context key has no entity of its own, so it watches whatever it
       // currently follows.
-      if (def.targetMode === 'context') {
+      if (def.targetMode === 'context' || def.targetMode === 'button') {
         const target = this.effectiveTarget(def);
         if (!target || target.entityId !== entityId) return false;
         const entry = this.targetConnection(target, def);
@@ -174,7 +174,7 @@
         await this.stepTarget(def);
         return;
       }
-      if (def && def.targetMode === 'context') {
+      if (def && (def.targetMode === 'context' || def.targetMode === 'button')) {
         await this.toggleContextTarget(def);
         return;
       }
@@ -289,6 +289,18 @@
     effectiveTarget(definition) {
       const def = definition || this.definition();
       if (!def) return null;
+
+      // Follows another button, which is what makes a group of keys work: a
+      // lead key carries the device, the keys beside it only point at it.
+      if (def.targetMode === 'button') {
+        const lead = this.getLibrary().resolveKey({ button: def.targetButton });
+        if (!lead || !lead.entityIds.length) return null;
+        return {
+          entityId: lead.entityIds[0],
+          connectionId: lead.connection || def.connection,
+          name: lead.label || lead.name || lead.entityIds[0]
+        };
+      }
 
       if (def.targetMode === 'context') {
         const target = this.targets ? this.targets.get() : null;
@@ -664,8 +676,8 @@
         };
       }
 
-      // Context keys show what they follow — or say that they follow nothing.
-      if (def.targetMode === 'context') {
+      // A following key shows what it points at — or says that it points nowhere.
+      if (def.targetMode === 'context' || def.targetMode === 'button') {
         const target = this.effectiveTarget(def);
         if (!target) {
           return {
@@ -696,7 +708,7 @@
       const t = (key) => this.i18n.t(key);
       const domains = global.HaDomains;
       // A context key renders exactly the one device it follows, never a group.
-      const isGroup = def.targetMode !== "context" && def.entityIds.length > 1;
+      const isGroup = def.targetMode === 'fixed' && def.entityIds.length > 1;
       const record = entry ? entry.registry.get(primary) : null;
       const stateObj = entry ? entry.client.getState(primary) : null;
       const attributes = (stateObj && stateObj.attributes) || {};

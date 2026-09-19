@@ -244,6 +244,7 @@
           service_data: '',
           step_amount: 1,
           target_mode: 'fixed',
+          target_button: '',
           long_press: 'identify',
           long_press_button: '',
           on_data: '',
@@ -328,7 +329,11 @@
           groupRule: button.group_rule === GROUP_RULES.all_on ? GROUP_RULES.all_on : GROUP_RULES.any_on,
           // Everything an 'open' key needs; harmless on the other types.
           // Follows the device picked on another key instead of a fixed one.
-          targetMode: button.target_mode === 'context' ? 'context' : 'fixed',
+          // Three ways to know what a key acts on: its own entity, the device
+          // last picked, or whatever another button carries — that last one is
+          // how a "+" key next to a thermostat knows which thermostat.
+          targetMode: ['context', 'button'].indexOf(button.target_mode) !== -1 ? button.target_mode : 'fixed',
+          targetButton: button.target_button || '',
           longPress: button.long_press || 'identify',
           longPressButton: button.long_press_button || '',
           // How this button wants its devices switched, not just that.
@@ -370,6 +375,7 @@
           entityId: keySettings.entity_id,
           groupRule: GROUP_RULES.any_on,
           targetMode: 'fixed',
+          targetButton: '',
           longPress: 'identify',
           longPressButton: '',
           onData: '',
