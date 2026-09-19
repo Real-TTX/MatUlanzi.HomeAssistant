@@ -30,6 +30,10 @@
   const HEARTBEAT_TIMEOUT_MS = 6000;
   const VIEW_PATH = '/property-inspector/designer/designer.html';
 
+  /** Far enough from the centre that Studio cannot hide it. */
+  const OFFSET_X = 60;
+  const OFFSET_Y = 40;
+
   function DesignerWindow(options) {
     options = options || {};
     this.ud = options.ud;
@@ -112,7 +116,10 @@
   DesignerWindow.prototype.send = function (buttonId) {
     const path = this.viewPath();
     this.log('openView ' + path);
-    this.ud.openView(path, this.width, this.height, undefined, undefined, {
+    // Deliberately offset instead of centred: Studio itself sits in the middle
+    // of the screen at almost exactly this size, so a centred window lands on
+    // top of it and looks like nothing happened at all.
+    this.ud.openView(path, this.width, this.height, OFFSET_X, OFFSET_Y, {
       uuid: this.senderUuid || this.ud.uuid,
       key: 'designer',
       actionid: 'designer',

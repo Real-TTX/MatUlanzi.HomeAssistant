@@ -21,6 +21,10 @@
   const WIDTH = 420;
   const HEIGHT = 520;
 
+  /** Clear of the screen centre, where Studio itself sits. */
+  const DEFAULT_X = 80;
+  const DEFAULT_Y = 80;
+
   function ControlWindow(options) {
     const opts = options || {};
     this.ud = opts.ud;
@@ -105,12 +109,14 @@
 
     this.log('openView ' + this.viewPath() + ' for ' + wunsch.entityId);
     // x and y are honoured precisely (measured); leaving them out centres it.
+    // Centred would put it on top of Studio, where it is easy to miss. Unless
+    // the button says otherwise, it opens clear of the middle.
     this.ud.openView(
       this.viewPath(),
       this.width,
       this.height,
-      wunsch.x,
-      wunsch.y,
+      wunsch.x === undefined ? DEFAULT_X : wunsch.x,
+      wunsch.y === undefined ? DEFAULT_Y : wunsch.y,
       params
     );
     this.showing = wunsch.entityId || '';
