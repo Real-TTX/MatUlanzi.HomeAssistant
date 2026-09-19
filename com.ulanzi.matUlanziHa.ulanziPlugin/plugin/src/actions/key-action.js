@@ -646,7 +646,11 @@
       try {
         const def = this.definition();
         this._syncRefreshTimer(def);
-        const image = await this.renderer.render(this.buildView(def), def ? def.style : null);
+        const view = this.buildView(def);
+      // Display rules win over the plain style: they already know which state
+      // matched, so they set both directions at once.
+      const stil = def ? global.DisplayRules.applyTo(def.style, this.displayHit(def)) : null;
+      const image = await this.renderer.render(view, stil);
         if (image && image !== this._lastImage) {
           this._lastImage = image;
           this.$UD.setBaseDataIcon(this.context, image);
@@ -811,6 +815,28 @@
         progress: domains.progressOf(primary, stateObj),
         busy: this.busy
       };
+    }
+
+    /**
+     * The display rule that currently applies, or null when the button has
+     * none and its plain style stands unchanged.
+     */
+    displayHit(def) {
+      if (!def || !(def.rules || []).length) return null;
+      const entry = this.connection(def);
+      if (!entry) return null;
+
+      const target = this.effectiveTarget(def);
+      const ids = def.targetMode === 'fixed' ? def.entityIds : target ? [target.entityId] : [];
+      const entities = ids.map((entityId) => {
+        const state = entry.client.getState(entityId);
+        return {
+          entityId: entityId,
+          state: state ? state.state : '',
+          attributes: (state && state.attributes) || {}
+        };
+      });
+      return global.DisplayRules.evaluate(def.rules, entities);
     }
 
     /** Colour of the first member that is on, else of the first member. */

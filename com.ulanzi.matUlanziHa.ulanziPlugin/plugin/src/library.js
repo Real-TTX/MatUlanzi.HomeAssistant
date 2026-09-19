@@ -257,6 +257,7 @@
           off_data: '',
           entity_actions: {},
           actions: [],
+          rules: [],
           open_area: '',
           open_dashboard: '',
           open_url: '',
@@ -349,6 +350,8 @@
           // A list beats the old fixed pair: each entry says when it runs,
           // on which entity, and which service with which data.
           actions: Array.isArray(button.actions) ? button.actions : [],
+          // Empty means "derive the look from the entity" — that is the easy mode.
+          rules: Array.isArray(button.rules) ? button.rules : [],
           service: {
             domain: button.service_domain || '',
             name: button.service_name || '',
@@ -388,6 +391,7 @@
           offData: '',
           entityActions: {},
           actions: [],
+          rules: [],
           service: { domain: '', name: '', data: '' },
           stepAmount: 0,
           open: { target: 'entity', entityId: keySettings.entity_id, area: '', dashboard: '', url: '' },

@@ -10,6 +10,7 @@
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/mdi-icons.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/property-inspector/common/color-controls.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/property-inspector/common/cover-control.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/display-rules.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-services.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/action-presets.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/switch-plan.js"></script>
@@ -552,6 +553,68 @@
           const ohne = lib.resolveKey({ button: 'b2' });
           check('ein Button ohne Liste hat eine leere', ohne.actions.length === 0);
           check('und läuft damit ins alte Verhalten', actionsFor(ohne, 'press').length === 0);
+        }
+
+        section('Anzeigeregeln: was die Kachel zeigt');
+        {
+          const dr = DisplayRules;
+          const lampe = (id, state, attrs) => ({ entityId: id, state: state, attributes: attrs || {} });
+
+          const regeln = [
+            { id: 'r1', scope: 'any', what: 'attr:battery_level', op: '<', value: 20, icon: 'mdi:battery-alert', bg: '#e24b4a' },
+            { id: 'r2', scope: 'any', what: 'state', op: '=', value: 'on', icon: 'mdi:lightbulb', bg: '#f4b740' },
+            { id: 'r3', scope: 'all', what: 'state', op: '=', value: 'off', icon: 'mdi:lightbulb-outline', bg: '#2a2d33' }
+          ];
+
+          check('erste zutreffende Regel gewinnt', dr.evaluate(regeln, [lampe('light.a', 'on', { battery_level: 8 })]).id === 'r1');
+          check('sonst greift die nächste', dr.evaluate(regeln, [lampe('light.a', 'on')]).id === 'r2');
+          check('und die letzte', dr.evaluate(regeln, [lampe('light.a', 'off')]).id === 'r3');
+          check('ohne Treffer bleibt der eigene Stil', dr.evaluate(regeln, [lampe('light.a', 'unavailable')]) === null);
+          check('ohne Regeln erst recht', dr.evaluate([], [lampe('light.a', 'on')]) === null);
+          check('ohne Entitäten trifft nichts', dr.evaluate(regeln, []) === null);
+
+          check(
+            '"irgendeine" reicht eine',
+            dr.matches(regeln[1], [lampe('light.a', 'off'), lampe('light.b', 'on')]) === true
+          );
+          check(
+            '"alle" verlangt alle',
+            dr.matches(regeln[2], [lampe('light.a', 'off'), lampe('light.b', 'on')]) === false
+          );
+          check(
+            '"alle" trifft, wenn wirklich alle',
+            dr.matches(regeln[2], [lampe('light.a', 'off'), lampe('light.b', 'off')]) === true
+          );
+          check(
+            'eine bestimmte Entität',
+            dr.matches({ scope: 'light.b', what: 'state', op: '=', value: 'on' }, [lampe('light.a', 'off'), lampe('light.b', 'on')]) === true
+          );
+          check(
+            'eine nicht vorhandene Entität trifft nie',
+            dr.matches({ scope: 'light.z', what: 'state', op: '=', value: 'on' }, [lampe('light.a', 'on')]) === false
+          );
+
+          check('Zahlen vergleichen numerisch', dr.compare('9', '<', 20) === true);
+          check('und nicht als Text', dr.compare('9', '<', '100') === true);
+          check('Text vergleicht als Text', dr.compare('heat', '=', 'heat') === true);
+          check('ungleich funktioniert', dr.compare('heat', '!=', 'cool') === true);
+          check('Groß- und Kleinschreibung egal', dr.compare('Heat', '=', 'heat') === true);
+          check('unerreichbar wird erkannt', dr.compare('unavailable', 'unavailable') === true);
+          check('ein fehlender Wert trifft nicht', dr.compare(undefined, '=', 'on') === false);
+
+          check('Attribut wird gelesen', dr.valueOf(lampe('l', 'on', { brightness: 128 }), 'attr:brightness') === 128);
+          check('Zustand wird gelesen', dr.valueOf(lampe('l', 'on'), 'state') === 'on');
+
+          const stil = dr.applyTo({ icon_on: 'a', icon_off: 'b', radius: 28 }, { icon: 'mdi:fire', bg: '#f00' });
+          check('Regel setzt beide Richtungen', stil.icon_on === 'mdi:fire' && stil.icon_off === 'mdi:fire');
+          check('und die Hintergrundfarbe', stil.bg_on === '#f00' && stil.bg_off === '#f00');
+          check('lässt Unerwähntes in Ruhe', stil.radius === 28);
+          check('ohne Treffer bleibt der Stil unangetastet', dr.applyTo({ radius: 10 }, null).radius === 10);
+
+          check('Vorschlag für Licht', dr.suggest('light.x').length === 2);
+          check('Vorschlag für Klima kennt heizen', dr.suggest('climate.x').some((r) => r.icon === 'mdi:fire'));
+          check('Vorschlag für Rollo kennt offen', dr.suggest('cover.x').some((r) => r.icon === 'mdi:window-shutter-open'));
+          check('unbekannte Domain schlägt nichts vor', dr.suggest('sensor.x').length === 0);
         }
 
         section('Dienste kommen aus Home Assistant selbst');
