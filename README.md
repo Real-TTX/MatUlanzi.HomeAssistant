@@ -283,11 +283,22 @@ definierbar, ohne eine zweite Konfigurationssprache: er kann alles, was ein
 Button kann. Ausgeführt wird nur dessen *Druck*-Aktion, nie wieder ein langer
 Druck, damit zwei Buttons sich nicht gegenseitig aufrufen können.
 
-Ein Kontextmenü an der Maus ist dagegen nicht möglich: die Plugin-Seite kennt
-die Mausposition nicht und kann kein Betriebssystem-Menü öffnen. `openView`
-beachtet zwar übergebene Koordinaten (angefordert 120,90 → Fenster bei 112,90),
-ignoriert aber die Wunschgröße — 420×320 angefordert, 1256×943 bekommen. Ein
-kleines Menü-Fenster lässt sich damit nicht zuverlässig bauen.
+Ein **kleines Fenster an einer gewünschten Stelle** ist dagegen sehr wohl
+möglich. `openView` beachtet Größe *und* Position genau — zweimal gemessen:
+
+```
+angefordert 380x260 an 700,400  →  Fenster 396x299 an 692,400
+angefordert 620x430 an 200,150  →  Fenster 636x469 an 192,150
+```
+
+Die Differenz ist genau der Fensterrahmen. (Eine frühere Notiz hier behauptete,
+die Größe werde ignoriert — das war ein Messfehler an einem anderen, noch
+offenen Fenster.)
+
+Was die Plugin-Seite nicht kann, ist die **Mausposition** kennen oder ein
+Betriebssystem-Menü öffnen. Dafür bräuchte es ein kleines lokales
+Hilfsprogramm — und der Draht dorthin steht: eine Plugin-Seite in Studio
+erreicht `http://127.0.0.1:<port>` problemlos, gemessen mit einem Testserver.
 
 Das ist bewusst die Übersetzung des „Smart Dialer"-Musters anderer Plugins auf
 ein Tastenfeld. Der echte Dialer braucht einen Encoder; dieses Gerät ist laut
