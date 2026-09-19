@@ -332,6 +332,25 @@ Das ist bewusst die Übersetzung des „Smart Dialer"-Musters anderer Plugins au
 ein Tastenfeld. Der echte Dialer braucht einen Encoder; dieses Gerät ist laut
 Studios eigener Konfiguration ein `Ulanzi Deck 5x3` ohne Drehknöpfe.
 
+#### Das Rollo zieht man, statt es zu rechnen
+
+Ein Prozentregler wäre technisch genug, aber niemand denkt über ein Rollo in
+Prozent nach — man denkt „runter bis etwa dahin". Deshalb *ist* das Bedienelement
+das Fenster: Scheibe, Fensterkreuz, und ein Raffstore, den man mit der Maus
+herunterzieht.
+
+```
+Rollo steht auf 75   →  Kasten zu 25 % verdeckt
+gezogen auf 70 %     →  Anzeige „30 %"
+losgelassen          →  cover.set_cover_position {position: 30}
+```
+
+Gesendet wird **nur beim Loslassen** — ein Rollomotor soll nicht jedem Pixel
+hinterherfahren. Während der Fahrt meldet Home Assistant laufend neue
+Positionen; die Kachel folgt ihnen, ohne die Hand zu stören, die gerade zieht.
+Die Geometrie ist eine reine Funktion und getestet, weil eine vertauschte
+Richtung hier 80 % schicken würde, wo man 20 % wollte.
+
 ### Tastengruppen: Nachbartasten folgen einer Leittaste
 
 Eine Taste kann auf **das Gerät einer anderen Taste** wirken. Damit wird aus
@@ -369,7 +388,7 @@ Thermostat   An/Aus · Solltemperatur 23° (jetzt 22°)
              Lüfter · Schwenken · Voreinstellung als Auswahl
 
 Lampe        An/Aus · Helligkeit · Farbe (Farbwähler) · Farbtemperatur
-Rollo        ▲ ■ ▼ · Position
+Rollo        ein Fenster zum Ziehen · ▲ Stopp ▼ · ggf. Neigung
 Media        ⏮ ⏯ ⏭ · Lautstärke
 ```
 

@@ -215,6 +215,9 @@
     "hint_follow": "Leitbutton und diesen nebeneinander auf das Deck legen.",
     "Double click": "Doppelklick",
     "Home Assistant service": "Home-Assistant-Dienst",
-    "Open control window": "Steuerfenster öffnen"
+    "Open control window": "Steuerfenster öffnen",
+    "Stop": "Stopp",
+    "Close": "Zu",
+    "Tilt": "Neigung"
   }
 }

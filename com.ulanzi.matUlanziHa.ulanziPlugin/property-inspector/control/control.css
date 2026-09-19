@@ -115,3 +115,63 @@ main {
   background: #26282d;
   color: #d5d8dc;
 }
+
+/* The window itself is the control: drag the shutter to where you want it. */
+.ha-cover {
+  display: flex;
+  justify-content: center;
+}
+
+.ha-cover-box {
+  position: relative;
+  width: 190px;
+  height: 150px;
+  border-radius: 6px;
+  border: 3px solid #4a4f57;
+  /* Daylight behind the glass, so a raised shutter reads as "open". */
+  background: linear-gradient(180deg, #9ad0f5 0%, #cfe9fb 60%, #eaf4fb 100%);
+  overflow: hidden;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+/* The window cross, so it reads as a window and not as a progress bar. */
+.ha-cover-box::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to right, transparent calc(50% - 1px), #4a4f5766 50%, transparent calc(50% + 1px)),
+    linear-gradient(to bottom, transparent calc(50% - 1px), #4a4f5766 50%, transparent calc(50% + 1px));
+  pointer-events: none;
+}
+
+.ha-cover-shutter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+  background: repeating-linear-gradient(180deg, #8d939c 0 6px, #767c85 6px 8px);
+  border-bottom: 2px solid #5a6069;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  z-index: 1;
+}
+
+.ha-cover.dragging .ha-cover-shutter {
+  border-bottom-color: #18bcf2;
+}
+
+.ha-cover-readout {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  z-index: 2;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(20, 22, 26, 0.65);
+  color: #eceef0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

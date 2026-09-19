@@ -212,6 +212,9 @@
     "hint_follow": "Put the lead key and this one next to each other on the deck.",
     "Double click": "Double click",
     "Home Assistant service": "Home Assistant service",
-    "Open control window": "Open control window"
+    "Open control window": "Open control window",
+    "Stop": "Stop",
+    "Close": "Close",
+    "Tilt": "Tilt"
   }
 }

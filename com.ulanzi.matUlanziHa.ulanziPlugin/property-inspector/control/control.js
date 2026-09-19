@@ -26,6 +26,8 @@
   let label = '';
   let lastReportedVisible = null;
   let sendTimer = null;
+  /** The drag widget, kept so a pushed state can follow without a redraw. */
+  let coverWidget = null;
 
   /**
    * Claim an identity of our own before connecting — the host keeps one socket
@@ -129,7 +131,21 @@
   client.on('states', render);
   client.on('state', (change) => {
     // Only redraw for the device on screen; everything else is noise here.
-    if (change && change.entityId === entityId) render();
+    if (!change || change.entityId !== entityId) return;
+
+    // A shutter on the move reports every step. Rebuilding the panel each time
+    // would rip the widget out from under the hand dragging it, so nudge it
+    // instead and let it decide whether to follow.
+    if (coverWidget) {
+      const zustand = client.getState(entityId);
+      const position = zustand && zustand.attributes ? zustand.attributes.current_position : null;
+      if (typeof position === 'number') {
+        coverWidget.set(position);
+        el('state').textContent = global.HaDomains.valueText(entityId, zustand, t);
+        return;
+      }
+    }
+    render();
   });
 
   function call(domain, service, data) {
@@ -181,6 +197,7 @@
 
     const panel = el('panel');
     panel.innerHTML = '';
+    coverWidget = null;
     if (!entityId) {
       panel.appendChild(element('p', 'hint', t('No entity')));
       return;
@@ -339,25 +356,41 @@
   }
 
   function renderCover(panel, attrs) {
+    // The window is the control: drag the shutter, release, and it goes there.
+    if (typeof attrs.current_position === 'number') {
+      const teil = section(t('Position'));
+      const fenster = global.CoverControl.coverField({
+        position: attrs.current_position,
+        onPreview: (prozent) => {
+          el('state').textContent = prozent + ' %';
+        },
+        onCommit: (prozent) => {
+          call('cover', 'set_cover_position', { position: prozent });
+        }
+      });
+      teil.appendChild(fenster.node);
+      panel.appendChild(teil);
+      coverWidget = fenster;
+    }
+
     panel.appendChild(
       buttonRow([
-        { label: '\u25b2', run: () => call('cover', 'open_cover') },
-        { label: '\u25a0', run: () => call('cover', 'stop_cover') },
-        { label: '\u25bc', run: () => call('cover', 'close_cover') }
+        { label: '▲ ' + t('Open'), run: () => call('cover', 'open_cover') },
+        { label: '■ ' + t('Stop'), run: () => call('cover', 'stop_cover') },
+        { label: '▼ ' + t('Close'), run: () => call('cover', 'close_cover') }
       ])
     );
 
-    if (typeof attrs.current_position === 'number') {
-      const teil = section(t('Position'));
+    if (typeof attrs.current_tilt_position === 'number') {
+      const neigung = section(t('Tilt'));
       const regler = global.ColorControls.percentField({
-        value: attrs.current_position,
-        onChange: () => callSoon('cover', 'set_cover_position', { position: regler.get() })
+        value: attrs.current_tilt_position,
+        onChange: () => callSoon('cover', 'set_cover_tilt_position', { tilt_position: regler.get() })
       });
-      teil.appendChild(regler.node);
-      panel.appendChild(teil);
+      neigung.appendChild(regler.node);
+      panel.appendChild(neigung);
     }
   }
-
   function renderMedia(panel, attrs) {
     panel.appendChild(
       buttonRow([

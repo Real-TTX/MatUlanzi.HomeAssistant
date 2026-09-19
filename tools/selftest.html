@@ -9,6 +9,7 @@
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-domains.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/mdi-icons.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/property-inspector/common/color-controls.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/property-inspector/common/cover-control.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-services.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/action-presets.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/switch-plan.js"></script>
@@ -620,6 +621,33 @@
           check('Daten: leeres Feld fehlt', hs.buildData(licht.fields, { brightness_pct: '' }).brightness_pct === undefined);
           check('Daten: Zahl bleibt Zahl', hs.buildData(licht.fields, { brightness_pct: '40' }).brightness_pct === 40);
           check('Werte zurücklesen: Farbe als Hex', hs.readValues(licht.fields, { rgb_color: [255, 160, 60] }).rgb_color === '#ffa03c');
+        }
+
+        section('Rollo zum Ziehen: die Geometrie');
+        {
+          const cc = CoverControl;
+          // Fensterkasten: oben bei 100, 200 hoch.
+          const oben = 100, hoch = 200;
+
+          check('ganz oben gezogen heißt offen', cc.positionFromY(100, oben, hoch) === 100);
+          check('ganz unten gezogen heißt zu', cc.positionFromY(300, oben, hoch) === 0);
+          check('Mitte ist halb', cc.positionFromY(200, oben, hoch) === 50);
+          check('ein Viertel von oben lässt 75 offen', cc.positionFromY(150, oben, hoch) === 75);
+          check('über den Rand hinaus wird gekappt', cc.positionFromY(0, oben, hoch) === 100);
+          check('unter den Rand hinaus ebenso', cc.positionFromY(999, oben, hoch) === 0);
+          check('ein Kasten ohne Höhe stürzt nicht ab', cc.positionFromY(50, 0, 0) === 0);
+
+          check('offen verdeckt nichts', cc.coveredPercent(100) === 0);
+          check('zu verdeckt alles', cc.coveredPercent(0) === 100);
+          check('75 offen verdeckt ein Viertel', cc.coveredPercent(75) === 25);
+          check('Unsinn wird zu 0', cc.coveredPercent('abc') === 0);
+          check('zu große Werte werden gekappt', cc.coveredPercent(-40) === 100);
+
+          // Hin und zurück: was man zieht, wird auch gezeigt.
+          for (const wunsch of [0, 17, 50, 83, 100]) {
+            const y = oben + hoch * (1 - wunsch / 100);
+            check('gezogen auf ' + wunsch + ' ergibt ' + wunsch, cc.positionFromY(y, oben, hoch) === wunsch);
+          }
         }
 
         section('Farbregler: die Mathematik dahinter');
