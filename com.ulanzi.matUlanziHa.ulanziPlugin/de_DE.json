@@ -212,6 +212,9 @@
     "Preset": "Voreinstellung",
     "The device of another button": "Das Gerät eines anderen Buttons",
     "Follows this button": "Folgt diesem Button",
-    "hint_follow": "Leitbutton und diesen nebeneinander auf das Deck legen."
+    "hint_follow": "Leitbutton und diesen nebeneinander auf das Deck legen.",
+    "Double click": "Doppelklick",
+    "Home Assistant service": "Home-Assistant-Dienst",
+    "Open control window": "Steuerfenster öffnen"
   }
 }

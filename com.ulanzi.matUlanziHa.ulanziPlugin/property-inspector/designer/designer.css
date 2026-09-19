@@ -707,3 +707,12 @@ legend {
 .ha-field-off .ha-field-head {
   color: #8b9099;
 }
+
+/* The kind select gets its own line when a service row already has three. */
+.ha-action-kind {
+  margin-top: 6px;
+}
+
+.ha-action-kind select {
+  width: 100%;
+}

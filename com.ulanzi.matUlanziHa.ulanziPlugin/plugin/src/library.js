@@ -37,8 +37,14 @@
   /** Actions of a button for one trigger, in the order they were added. */
   function actionsFor(definition, trigger) {
     const liste = (definition && definition.actions) || [];
-    const wanted = trigger === 'long' ? 'long' : 'press';
-    return liste.filter((action) => (action.trigger || 'press') === wanted);
+    // Three triggers, and anything unknown counts as a plain press — a stored
+    // action must never become unreachable because of a typo.
+    const TRIGGERS = ['press', 'long', 'double'];
+    const wanted = TRIGGERS.indexOf(trigger) !== -1 ? trigger : 'press';
+    return liste.filter((action) => {
+      const eigen = action.trigger || 'press';
+      return (TRIGGERS.indexOf(eigen) !== -1 ? eigen : 'press') === wanted;
+    });
   }
 
   /**

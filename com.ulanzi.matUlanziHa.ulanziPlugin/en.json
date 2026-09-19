@@ -209,6 +209,9 @@
     "Preset": "Preset",
     "The device of another button": "The device of another button",
     "Follows this button": "Follows this button",
-    "hint_follow": "Put the lead key and this one next to each other on the deck."
+    "hint_follow": "Put the lead key and this one next to each other on the deck.",
+    "Double click": "Double click",
+    "Home Assistant service": "Home Assistant service",
+    "Open control window": "Open control window"
   }
 }

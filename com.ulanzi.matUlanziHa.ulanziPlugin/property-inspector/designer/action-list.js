@@ -63,6 +63,7 @@
     this.actions.push({
       id: newId(),
       trigger: 'press',
+      kind: 'service',
       entity: '',
       domain: '',
       service: '',
@@ -109,6 +110,7 @@
     const trigger = doc.createElement('select');
     trigger.appendChild(option('press', t('Short press')));
     trigger.appendChild(option('long', t('Long press')));
+    trigger.appendChild(option('double', t('Double click')));
     trigger.value = action.trigger || 'press';
     trigger.addEventListener('change', () => {
       action.trigger = trigger.value;
@@ -127,6 +129,16 @@
       this._changed();
     });
 
+    const kind = doc.createElement('select');
+    kind.appendChild(option('service', t('Home Assistant service')));
+    kind.appendChild(option('window', t('Open control window')));
+    kind.value = action.kind === 'window' ? 'window' : 'service';
+    kind.addEventListener('change', () => {
+      action.kind = kind.value;
+      this.render();
+      this._changed();
+    });
+
     const service = doc.createElement('select');
     service.appendChild(option('', '…'));
 
@@ -137,18 +149,27 @@
 
     head.appendChild(trigger);
     head.appendChild(entity);
-    head.appendChild(service);
+    head.appendChild(action.kind === 'window' ? kind : service);
     head.appendChild(remove);
+
+    // The kind select sits in the row above when a service is chosen, so both
+    // stay reachable without cramming four dropdowns into one line.
+    if (action.kind !== 'window') {
+      const zweite = element('div', 'ha-action-kind');
+      zweite.appendChild(kind);
+      row.appendChild(zweite);
+    }
     row.appendChild(head);
 
     const fields = element('div', 'ha-action-fields');
-    row.appendChild(fields);
+    if (action.kind !== 'window') row.appendChild(fields);
 
     const json = doc.createElement('textarea');
     json.className = 'ha-action-json';
     json.spellcheck = false;
     json.value = action.data || '';
     json.placeholder = '{ }';
+    if (action.kind === 'window') json.classList.add('hidden');
     json.addEventListener('change', () => {
       action.data = json.value;
       this._changed();
@@ -158,6 +179,8 @@
 
     // The entity decides which services are on offer; without one we fall back
     // to the button's first entity so the list is never empty.
+    if (action.kind === 'window') return row;
+
     const fuer = action.entity || deps.entitiesOf()[0] || '';
     deps.catalogue().then((katalog) => {
       if (!katalog) return;

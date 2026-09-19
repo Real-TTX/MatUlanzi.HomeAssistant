@@ -14,6 +14,8 @@
 
   const RENDER_DEBOUNCE_MS = 100;
   const LONG_PRESS_MS = 600;
+  /** Two presses inside this window count as a double click. */
+  const DOUBLE_CLICK_MS = 320;
   const MIN_REFRESH_MS = 5000;
 
   class KeyAction {
@@ -42,6 +44,7 @@
       this._lastImage = '';
       this._refreshTimer = null;
       this._refreshMs = 0;
+      this._pendingClick = null;
     }
 
     /** Called for `add`, `paramfromapp` and `paramfromplugin`. */
@@ -141,10 +144,34 @@
       const def = this.definition();
 
       if (pressDurationMs > LONG_PRESS_MS) {
+        this._cancelPendingClick();
         await this.handleLongPress(def);
         return;
       }
-      await this.runDefinition(def);
+
+      // Telling a single from a double click means holding the single one back
+      // for a moment. That delay is only paid by keys that actually have a
+      // double-click action — everything else still fires instantly.
+      if (!global.actionsFor(def, 'double').length) {
+        await this.runDefinition(def);
+        return;
+      }
+
+      if (this._pendingClick) {
+        this._cancelPendingClick();
+        await this.runActions(def, 'double');
+        return;
+      }
+      this._pendingClick = global.setTimeout(() => {
+        this._pendingClick = null;
+        this.runDefinition(def);
+      }, DOUBLE_CLICK_MS);
+    }
+
+    _cancelPendingClick() {
+      if (!this._pendingClick) return;
+      global.clearTimeout(this._pendingClick);
+      this._pendingClick = null;
     }
 
     /**
@@ -367,8 +394,10 @@
      * plugin paint only its own keys and offers no page switching), so the
      * knobs appear on the computer instead.
      */
-    openControl(def) {
-      const target = this.effectiveTarget(def);
+    openControl(def, entityOverride) {
+      const target = entityOverride
+        ? { entityId: entityOverride, connectionId: def.connection, name: '' }
+        : this.effectiveTarget(def);
       if (!target || !this.control) {
         this.$UD.showAlert(this.context);
         this.$UD.toast(this.i18n.t('No entity'));
@@ -468,6 +497,12 @@
 
       await this._withBusy(async () => {
         for (const action of liste) {
+          // Opening the control window is an action like any other, so a key can
+          // switch something *and* bring the knobs up.
+          if (action.kind === 'window') {
+            this.openControl(def, action.entity);
+            continue;
+          }
           if (!action.domain || !action.service) continue;
 
           const parsed = global.SwitchPlan.parseData(action.data);
@@ -806,6 +841,7 @@
     }
 
     destroy() {
+      this._cancelPendingClick();
       if (this._renderTimer) {
         global.clearTimeout(this._renderTimer);
         this._renderTimer = null;

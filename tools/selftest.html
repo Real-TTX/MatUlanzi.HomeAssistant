@@ -452,6 +452,34 @@
         check('i18n de', new I18n('de_DE').t('On') === 'An');
         check('i18n Fallback en', new I18n('fr_FR').t('On') === 'On');
 
+        section('Doppelklick und das Fenster als Aktion');
+        {
+          const lib = Library.parse({
+            connections: [{ id: 'c1', name: 'HA', url: 'http://ha:8123', token: 't' }],
+            buttons: [
+              {
+                id: 'b1', name: 'Rollo', connection: 'c1', entities: ['cover.buro'],
+                actions: [
+                  { id: 'a1', trigger: 'press', kind: 'service', domain: 'cover', service: 'toggle', data: '' },
+                  { id: 'a2', trigger: 'double', kind: 'window', entity: '' },
+                  { id: 'a3', trigger: 'long', kind: 'service', domain: 'cover', service: 'stop_cover', data: '' }
+                ]
+              },
+              { id: 'b2', name: 'Schlicht', connection: 'c1', entities: ['light.a'], actions: [] }
+            ]
+          });
+
+          const def = lib.resolveKey({ button: 'b1' });
+          check('drei Auslöser unterscheidbar', actionsFor(def, 'press').length === 1 && actionsFor(def, 'double').length === 1 && actionsFor(def, 'long').length === 1);
+          check('der Doppelklick öffnet das Fenster', actionsFor(def, 'double')[0].kind === 'window');
+          check('und braucht keinen Dienst', !actionsFor(def, 'double')[0].service);
+          check('der einfache Druck bleibt ein Dienst', actionsFor(def, 'press')[0].kind === 'service');
+
+          const schlicht = lib.resolveKey({ button: 'b2' });
+          check('ohne Doppelklick-Aktion gibt es keine', actionsFor(schlicht, 'double').length === 0);
+          check('womit der einfache Druck ohne Verzögerung laufen darf', actionsFor(schlicht, 'double').length === 0);
+        }
+
         section('Tastengruppe: Nachbartasten folgen einem Leitbutton');
         {
           const lib = Library.parse({

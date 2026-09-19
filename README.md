@@ -130,6 +130,34 @@ Helligkeit erneut   →  die anderen bleiben, nur der eine Wert ändert sich
 Sind Farbe und Farbtemperatur gleichzeitig gesetzt, wird gewarnt — Home Assistant
 nimmt in dem Fall nur eines davon und sagt nicht, welches.
 
+### Ein Button, drei Auslöser, eine Kachel
+
+Das Modell ist absichtlich klein: **eine** Sorte Button, eine Kachel, und eine
+Liste von Aktionen mit drei möglichen Auslösern.
+
+| Auslöser | wann |
+| --- | --- |
+| Kurzer Druck | sofort |
+| Doppelklick | zwei Drücke binnen 320 ms |
+| Langer Druck | ab 600 ms |
+
+Der einfache Druck wird nur dann zurückgehalten, wenn der Button überhaupt eine
+Doppelklick-Aktion hat — sonst feuert er ohne jede Verzögerung. Wer keinen
+Doppelklick benutzt, zahlt also nichts dafür.
+
+Und eine Aktion muss kein Home-Assistant-Dienst sein: **„Steuerfenster öffnen"**
+steht als Aktionsart daneben. Damit kann eine Taste schalten *und* auf Wunsch
+die Regler zeigen:
+
+```
+Kurzer Druck  ·  Dienst    ·  cover.toggle
+Doppelklick   ·  Fenster   ·  (dieselbe Entität)
+Langer Druck  ·  Dienst    ·  cover.stop_cover
+```
+
+Genau so am Wohnzimmer-Rollo gemessen: langer Druck stoppte, zwei schnelle
+Drücke öffneten das Fenster ohne zu schalten, ein einzelner Druck schaltete.
+
 ### Aktionsliste: wann, worauf, was
 
 Ein Button trägt eine Liste von Aktionen statt fester Felder. Jede Zeile sagt,
