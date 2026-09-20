@@ -135,6 +135,13 @@
     kind.value = action.kind === 'window' ? 'window' : 'service';
     kind.addEventListener('change', () => {
       action.kind = kind.value;
+      if (action.kind === 'window') {
+        // The window needs no service; leaving the old one would show a call
+        // that never happens.
+        action.domain = '';
+        action.service = '';
+        action.data = '';
+      }
       this.render();
       this._changed();
     });
