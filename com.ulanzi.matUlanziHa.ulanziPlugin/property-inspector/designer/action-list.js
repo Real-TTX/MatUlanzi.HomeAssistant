@@ -154,18 +154,16 @@
     remove.title = t('Remove this action');
     remove.addEventListener('click', () => this.remove(action.id));
 
+    // Reads the way the decision is actually made: when does it happen, what
+    // kind of thing happens, and only then the details. The kind used to sit
+    // below the service it governs, which was backwards.
     head.appendChild(trigger);
+    head.appendChild(kind);
     head.appendChild(entity);
-    head.appendChild(action.kind === 'window' ? kind : service);
+    if (action.kind !== 'window') head.appendChild(service);
     head.appendChild(remove);
 
-    // The kind select sits in the row above when a service is chosen, so both
-    // stay reachable without cramming four dropdowns into one line.
-    if (action.kind !== 'window') {
-      const zweite = element('div', 'ha-action-kind');
-      zweite.appendChild(kind);
-      row.appendChild(zweite);
-    }
+    head.classList.toggle('ha-action-head-window', action.kind === 'window');
     row.appendChild(head);
 
     const fields = element('div', 'ha-action-fields');

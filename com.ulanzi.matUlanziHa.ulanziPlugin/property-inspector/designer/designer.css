@@ -651,11 +651,17 @@ legend {
   background: #212429;
 }
 
+/* Trigger, kind, entity, service — in the order the decision is made. */
 .ha-action-head {
   display: grid;
-  grid-template-columns: 1fr 1fr 2fr auto;
+  grid-template-columns: 0.9fr 1.1fr 1.2fr 1.6fr auto;
   gap: 6px;
   align-items: center;
+}
+
+/* A window needs no service, so the row is one column shorter. */
+.ha-action-head-window {
+  grid-template-columns: 0.9fr 1.1fr 1.2fr auto;
 }
 
 .ha-action-remove {
@@ -708,14 +714,6 @@ legend {
   color: #8b9099;
 }
 
-/* The kind select gets its own line when a service row already has three. */
-.ha-action-kind {
-  margin-top: 6px;
-}
-
-.ha-action-kind select {
-  width: 100%;
-}
 
 /* Automatic until you ask otherwise: one line, one button. */
 .ha-auto {
