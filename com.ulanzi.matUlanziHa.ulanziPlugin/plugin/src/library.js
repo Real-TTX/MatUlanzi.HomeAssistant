@@ -29,6 +29,16 @@
   const LIBRARY_CONTEXT = 'com.ulanzi.ulanzistudio.matUlanziHa___library___library';
 
   /**
+   * Timings that belong to the whole library, not to one button. A deck is a
+   * physical thing — how long a press has to be before it counts as long is
+   * a matter of taste and of how hard someone presses.
+   */
+  const DEFAULT_SETTINGS = Object.freeze({
+    long_press_ms: 600,
+    double_click_ms: 320
+  });
+
+  /**
    * Guards every library write: an empty payload must never replace content.
    * Studio keeps no backup, so one bad write is unrecoverable — and the store is
    * keyed by uuid only, which makes stray writes easy. Returns true when the
@@ -100,6 +110,9 @@
       this.connections = Array.isArray(source.connections) ? source.connections.slice() : [];
       this.folders = Array.isArray(source.folders) ? source.folders.slice() : [];
       this.buttons = Array.isArray(source.buttons) ? source.buttons.slice() : [];
+      // Unknown keys survive, so a newer build can add a setting without an
+      // older one dropping it on the next save.
+      this.settings = Object.assign({}, DEFAULT_SETTINGS, source.settings || {});
 
       // Global settings written before the library existed carried a single
       // flat connection. Keep those users connected.
@@ -121,10 +134,23 @@
     toJSON() {
       return {
         version: VERSION,
+        settings: this.settings,
         connections: this.connections,
         folders: this.folders,
         buttons: this.buttons
       };
+    }
+
+    /** One timing, with the default when it was never set or makes no sense. */
+    timing(name) {
+      const wert = Number((this.settings || {})[name]);
+      if (!isFinite(wert) || wert <= 0) return DEFAULT_SETTINGS[name];
+      return wert;
+    }
+
+    updateSettings(values) {
+      this.settings = Object.assign({}, this.settings, values || {});
+      return this.settings;
     }
 
     // --- connections --------------------------------------------------------
@@ -406,6 +432,7 @@
   }
 
   global.LIBRARY_CONTEXT = LIBRARY_CONTEXT;
+  global.DEFAULT_SETTINGS = DEFAULT_SETTINGS;
   global.mayReplaceLibrary = mayReplaceLibrary;
   global.actionsFor = actionsFor;
   global.entitiesForAction = entitiesForAction;

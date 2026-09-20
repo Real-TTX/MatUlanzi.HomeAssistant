@@ -233,6 +233,18 @@
     "Background": "Hintergrund",
     "Earlier": "nach oben",
     "Later": "nach unten",
-    "Remove this rule": "Diese Regel entfernen"
+    "Remove this rule": "Diese Regel entfernen",
+    "Settings": "Einstellungen",
+    "Key timing": "Tasten-Zeiten",
+    "Long press from (ms)": "Langer Druck ab (ms)",
+    "Double click within (ms)": "Doppelklick binnen (ms)",
+    "hint_timing": "Wie ein Druck gelesen wird. Gilt für alle Tasten.",
+    "hint_double": "Ein einzelner Druck wartet nur bei Tasten, die eine Doppelklick-Aktion haben.",
+    "Press": "Druck",
+    "Double": "Doppelt",
+    "Long": "Lang",
+    "Running…": "Läuft …",
+    "Text colour": "Textfarbe",
+    "Leave empty to keep the tile setting": "Leer lassen: Einstellung der Kachel gilt"
   }
 }

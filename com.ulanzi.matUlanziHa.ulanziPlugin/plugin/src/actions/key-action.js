@@ -143,7 +143,7 @@
     async handlePress(pressDurationMs) {
       const def = this.definition();
 
-      if (pressDurationMs > LONG_PRESS_MS) {
+      if (pressDurationMs > this.longPressMs()) {
         this._cancelPendingClick();
         await this.handleLongPress(def);
         return;
@@ -165,7 +165,18 @@
       this._pendingClick = global.setTimeout(() => {
         this._pendingClick = null;
         this.runDefinition(def);
-      }, DOUBLE_CLICK_MS);
+      }, this.doubleClickMs());
+    }
+
+    /** Both timings are library-wide settings; the constants are the fallback. */
+    longPressMs() {
+      const lib = this.getLibrary();
+      return lib && lib.timing ? lib.timing('long_press_ms') : LONG_PRESS_MS;
+    }
+
+    doubleClickMs() {
+      const lib = this.getLibrary();
+      return lib && lib.timing ? lib.timing('double_click_ms') : DOUBLE_CLICK_MS;
     }
 
     _cancelPendingClick() {

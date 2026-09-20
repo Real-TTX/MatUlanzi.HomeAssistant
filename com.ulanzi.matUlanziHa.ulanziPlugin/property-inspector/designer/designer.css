@@ -781,3 +781,30 @@ button.link {
   color: #d5d8dc;
   cursor: pointer;
 }
+
+/* Texts sit on their own line in a rule: colour first, then the three zones. */
+.ha-rule-text {
+  display: grid;
+  grid-template-columns: 44px 1fr 1fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ha-collapse {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ha-simulate {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.ha-simulate button {
+  padding: 6px 4px;
+  font-size: 12px;
+}

@@ -111,7 +111,9 @@
         icon: rule.icon || '',
         bg: rule.bg || '',
         text: rule.text || '',
-        label: rule.label || '',
+        top: rule.top || '',
+        center: rule.center || '',
+        bottom: rule.bottom || '',
         id: rule.id || ''
       };
     }
@@ -134,6 +136,12 @@
     if (hit.text) {
       neu.text_on = hit.text;
       neu.text_off = hit.text;
+    }
+
+    // The three lines belong to the rule too: "which text" is part of "how it
+    // looks", and splitting them across two places was the old mistake.
+    for (const zeile of ['top', 'center', 'bottom']) {
+      if (hit[zeile]) neu[zeile] = hit[zeile];
     }
     return neu;
   }

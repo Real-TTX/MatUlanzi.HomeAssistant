@@ -88,6 +88,9 @@
 
           <ul class="list" id="button-list"></ul>
           <button type="button" class="wide" id="add-button" data-localize>+ Button</button>
+
+          <div class="group-title" style="margin-top: 18px" data-localize>Settings</div>
+          <ul class="list" id="settings-list"></ul>
         </aside>
 
         <section class="editor">
@@ -127,6 +130,31 @@
           </form>
 
           <!-- button editor -->
+          <form id="settings-form" class="hidden" autocomplete="off">
+            <div class="editor-head">
+              <h2 data-localize>Settings</h2>
+            </div>
+            <fieldset>
+              <legend data-localize>Key timing</legend>
+              <p class="hint" data-localize="hint_timing">
+                How a press is read. These apply to every key.
+              </p>
+              <div class="grid-2">
+                <div class="field">
+                  <label data-localize>Long press from (ms)</label>
+                  <input type="number" name="long_press_ms" min="200" max="3000" step="50" />
+                </div>
+                <div class="field">
+                  <label data-localize>Double click within (ms)</label>
+                  <input type="number" name="double_click_ms" min="120" max="1000" step="20" />
+                </div>
+              </div>
+              <p class="hint" data-localize="hint_double">
+                A single press waits this long only on keys that have a double-click action.
+              </p>
+            </fieldset>
+          </form>
+
           <form id="button-form" class="hidden" autocomplete="off">
             <div class="editor-head">
               <h2 data-localize>Button</h2>
@@ -322,9 +350,26 @@
         </section>
 
         <aside class="preview">
-          <div class="group-title" data-localize>Preview</div>
-          <img class="preview-key" id="preview" alt="" />
-          <div class="preview-info" id="preview-info"></div>
+          <div class="group-title ha-collapse" id="preview-toggle">
+            <span data-localize>Preview</span>
+            <span class="spacer"></span>
+            <span id="preview-caret">−</span>
+          </div>
+          <div id="preview-body">
+            <img class="preview-key" id="preview" alt="" />
+            <div class="preview-info" id="preview-info"></div>
+
+            <!--
+              Pressing the real key means walking to the deck. These send the
+              same three gestures the service would, against the real device.
+            -->
+            <div class="ha-simulate">
+              <button type="button" id="sim-press" data-localize>Press</button>
+              <button type="button" id="sim-double" data-localize>Double</button>
+              <button type="button" id="sim-long" data-localize>Long</button>
+            </div>
+            <p class="hint" id="sim-result"></p>
+          </div>
           <div class="placeholders">
             <div data-localize>Placeholders</div>
             <code>{{name}}</code> <code>{{area}}</code> <code>{{floor}}</code>

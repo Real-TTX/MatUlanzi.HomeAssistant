@@ -230,6 +230,18 @@
     "Background": "Background",
     "Earlier": "Earlier",
     "Later": "Later",
-    "Remove this rule": "Remove this rule"
+    "Remove this rule": "Remove this rule",
+    "Settings": "Settings",
+    "Key timing": "Key timing",
+    "Long press from (ms)": "Long press from (ms)",
+    "Double click within (ms)": "Double click within (ms)",
+    "hint_timing": "How a press is read. These apply to every key.",
+    "hint_double": "A single press waits this long only on keys that have a double-click action.",
+    "Press": "Press",
+    "Double": "Double",
+    "Long": "Long",
+    "Running…": "Running…",
+    "Text colour": "Text colour",
+    "Leave empty to keep the tile setting": "Leave empty to keep the tile setting"
   }
 }

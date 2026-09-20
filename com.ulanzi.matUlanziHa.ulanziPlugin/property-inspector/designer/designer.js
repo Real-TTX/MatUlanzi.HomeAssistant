@@ -476,6 +476,26 @@
       if (entry) backToAuto(entry, { rules: [] });
     });
 
+    el('preview-toggle').addEventListener('click', () => {
+      const body = el('preview-body');
+      const zu = body.classList.toggle('hidden');
+      el('preview-caret').textContent = zu ? '+' : '−';
+    });
+
+    for (const [id, gesture] of [['sim-press', 'press'], ['sim-double', 'double'], ['sim-long', 'long']]) {
+      el(id).addEventListener('click', () => {
+        if (selection.kind !== 'button' || !selection.id) return;
+        el('sim-result').textContent = t('Running…');
+        $UD.sendToPlugin({ request: 'simulate', button: selection.id, gesture: gesture });
+      });
+    }
+
+    const settingsForm = el('settings-form');
+    settingsForm.addEventListener('change', () => {
+      commitSettingsForm();
+      renderSettingsEntry();
+    });
+
     const buttonForm = el('button-form');
     buttonForm.addEventListener('input', Utils.debounce(commitButtonForm, 200));
     buttonForm.addEventListener('change', commitButtonForm);
@@ -561,6 +581,7 @@
 
     renderFolderFilter();
     renderButtonList();
+    renderSettingsEntry();
     refreshConnectionDots();
   }
 
@@ -594,6 +615,20 @@
     }
 
     select.value = folderFilter;
+  }
+
+  function renderSettingsEntry() {
+    const host = el('settings-list');
+    if (!host) return;
+    host.innerHTML = '';
+    host.appendChild(
+      listItem({
+        kind: 'settings',
+        id: 'timing',
+        name: t('Key timing'),
+        meta: library.timing('long_press_ms') + ' / ' + library.timing('double_click_ms') + ' ms'
+      })
+    );
   }
 
   function renderButtonList() {
@@ -688,6 +723,7 @@
     el('empty-state').classList.remove('hidden');
     el('connection-form').classList.add('hidden');
     el('button-form').classList.add('hidden');
+    el('settings-form').classList.add('hidden');
     el('preview').removeAttribute('src');
     el('preview-info').textContent = '';
   }
@@ -703,6 +739,15 @@
       el('connection-form').classList.remove('hidden');
       fillConnectionForm(entry);
       renderConnectionStatus(entry);
+      el('preview').removeAttribute('src');
+      el('preview-info').textContent = '';
+      return;
+    }
+
+    if (selection.kind === 'settings') {
+      el('empty-state').classList.add('hidden');
+      el('settings-form').classList.remove('hidden');
+      fillSettingsForm();
       el('preview').removeAttribute('src');
       el('preview-info').textContent = '';
       return;
@@ -724,6 +769,21 @@
   }
 
   // --- connection editor ----------------------------------------------------
+
+  function fillSettingsForm() {
+    const fields = el('settings-form').elements;
+    fields.long_press_ms.value = library.timing('long_press_ms');
+    fields.double_click_ms.value = library.timing('double_click_ms');
+  }
+
+  function commitSettingsForm() {
+    const fields = el('settings-form').elements;
+    library.updateSettings({
+      long_press_ms: Number(fields.long_press_ms.value) || 0,
+      double_click_ms: Number(fields.double_click_ms.value) || 0
+    });
+    save();
+  }
 
   function fillConnectionForm(entry) {
     const fields = el('connection-form').elements;
@@ -1519,6 +1579,11 @@
   // The service hands a running window the next button instead of opening a
   // second one, which the host would refuse anyway.
   $UD.onSendToPropertyInspector((message) => {
+    const antwort = (message && (message.payload || message.param)) || {};
+    if (antwort.response === 'simulate') {
+      el('sim-result').textContent = antwort.result || '';
+      return;
+    }
     const payload = (message && (message.payload || message.param)) || {};
     // A window of ours that is no longer on screen gets retired, so its Home
     // Assistant connection goes with it.

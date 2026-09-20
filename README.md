@@ -130,6 +130,39 @@ Helligkeit erneut   →  die anderen bleiben, nur der eine Wert ändert sich
 Sind Farbe und Farbtemperatur gleichzeitig gesetzt, wird gewarnt — Home Assistant
 nimmt in dem Fall nur eines davon und sagt nicht, welches.
 
+### Ein Druck wird beim Loslassen entschieden
+
+Der Host schickt zu einem Tastendruck mehrere Ereignisse, und sie sind nicht
+austauschbar. Wie lang ein Druck war, weiß man erst beim **Loslassen** — also
+entscheidet `keyup`, was passiert. `run` bleibt als Rückfall für den Simulator
+und für Multi-Aktionen, wo gar kein Tastenereignis kommt, wird aber ignoriert,
+wenn das Loslassen den Druck schon behandelt hat.
+
+Genau daran lag es, dass ein langer Druck **zusätzlich** die Kurz-Aktion
+auslöste. `haDebug.presses()` führt die letzten dreißig Ereignisse mit Quelle
+und Dauer mit, damit ein falsch gelesener Druck nachgesehen und nicht geraten
+werden kann.
+
+### Einstellungen und Klick-Simulation
+
+Neben Verbindungen und Buttons hat der Designer jetzt **Einstellungen**: ab wann
+ein Druck lang ist und wie schnell zwei Drücke ein Doppelklick sind. Beides gilt
+für alle Tasten, weil es davon abhängt, wie jemand drückt, nicht davon, was die
+Taste tut.
+
+Unter der Vorschau — die sich jetzt einklappen lässt — sitzen drei Knöpfe:
+**Druck · Doppelt · Lang**. Sie gehen denselben Weg wie ein echter Tastendruck,
+mit denselben Diensten an denselben Geräten, und melden zurück, was passiert
+ist. Damit lässt sich ein Button prüfen, ohne zum Deck zu laufen.
+
+### Regeln bestimmen das ganze Aussehen
+
+Eine Anzeigeregel setzt Icon, Hintergrund, **Textfarbe und die drei Textzeilen**.
+Vorher lagen die Texte unter „Kachel", während das Icon aus der Regel kam — zwei
+Orte für eine Entscheidung. Jetzt gilt: die Kachel ist die Grundeinstellung, die
+Regel die Abweichung. Ein leeres Feld in der Regel lässt den Wert der Kachel
+stehen.
+
 ### Der Designer: drei Blöcke, automatisch als Vorgabe
 
 Der Editor hatte sich auf sieben Bereiche aufgebläht, weil jeder neue Wunsch

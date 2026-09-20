@@ -197,8 +197,36 @@
     aussehen.appendChild(runter);
     aussehen.appendChild(weg);
 
+    // The texts belong to the rule as much as the icon does: "what it shows"
+    // and "how it looks" are one decision, and splitting them was confusing.
+    const texte = element('div', 'ha-rule-text');
+
+    const textfarbe = doc.createElement('input');
+    textfarbe.type = 'color';
+    textfarbe.value = /^#[0-9a-f]{6}$/i.test(rule.text || '') ? rule.text : '#eceef0';
+    textfarbe.title = t('Text colour');
+    textfarbe.addEventListener('change', () => {
+      rule.text = textfarbe.value;
+      this._changed();
+    });
+    texte.appendChild(textfarbe);
+
+    for (const zeile of ['top', 'center', 'bottom']) {
+      const feld = doc.createElement('input');
+      feld.type = 'text';
+      feld.value = rule[zeile] || '';
+      feld.placeholder = zeile === 'top' ? '{{area}}' : zeile === 'center' ? '{{value}}' : '{{name}}';
+      feld.title = t('Leave empty to keep the tile setting');
+      feld.addEventListener('change', () => {
+        rule[zeile] = feld.value;
+        this._changed();
+      });
+      texte.appendChild(feld);
+    }
+
     row.appendChild(bedingung);
     row.appendChild(aussehen);
+    row.appendChild(texte);
     return row;
   };
 

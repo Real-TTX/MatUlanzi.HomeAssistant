@@ -555,6 +555,33 @@
           check('und läuft damit ins alte Verhalten', actionsFor(ohne, 'press').length === 0);
         }
 
+        section('Einstellungen und Regel-Texte');
+        {
+          const leer = Library.parse({});
+          check('Vorgabe für langen Druck', leer.timing('long_press_ms') === 600);
+          check('Vorgabe für Doppelklick', leer.timing('double_click_ms') === 320);
+
+          const eigen = Library.parse({ settings: { long_press_ms: 900, double_click_ms: 250 } });
+          check('eigener Wert gilt', eigen.timing('long_press_ms') === 900 && eigen.timing('double_click_ms') === 250);
+          check('Unsinn fällt auf die Vorgabe zurück', Library.parse({ settings: { long_press_ms: 0 } }).timing('long_press_ms') === 600);
+          check('Text statt Zahl ebenso', Library.parse({ settings: { double_click_ms: 'bald' } }).timing('double_click_ms') === 320);
+
+          eigen.updateSettings({ long_press_ms: 750 });
+          check('Ändern wirkt', eigen.timing('long_press_ms') === 750);
+          check('und lässt den Rest stehen', eigen.timing('double_click_ms') === 250);
+          check('Einstellungen werden gespeichert', eigen.toJSON().settings.long_press_ms === 750);
+
+          const stil = DisplayRules.applyTo(
+            { top: '{{area}}', center: '{{value}}', bottom: '{{name}}', radius: 28 },
+            { icon: 'mdi:fire', text: '#fff', top: 'HEIZT', center: '{{attr:temperature}}°' }
+          );
+          check('Regel setzt die Textfarbe', stil.text_on === '#fff' && stil.text_off === '#fff');
+          check('Regel setzt die obere Zeile', stil.top === 'HEIZT');
+          check('Regel setzt die mittlere Zeile', stil.center === '{{attr:temperature}}°');
+          check('nicht gesetzte Zeile bleibt die der Kachel', stil.bottom === '{{name}}');
+          check('Struktur bleibt unangetastet', stil.radius === 28);
+        }
+
         section('Anzeigeregeln: was die Kachel zeigt');
         {
           const dr = DisplayRules;

@@ -65,8 +65,6 @@
 
   /** @type {Map<string, KeyAction>} context -> action instance */
   const actions = new Map();
-  /** @type {Map<string, number>} context -> keydown timestamp */
-  const pressStart = new Map();
 
   function ensureAction(message) {
     const context = message.context;
@@ -191,6 +189,118 @@
     hadTarget = has;
   }, TARGET_POLL_MS);
 
+  /**
+   * Which gesture a press was, decided on release.
+   *
+   * The host sends both `keyup` and `run`, and they are not interchangeable: a
+   * long press has to be measured against the moment the key comes back up, so
+   * that is what drives the dispatch. `run` stays as a fallback for the
+   * simulator and for multi-actions, where no key event arrives at all — but it
+   * is ignored when the release already handled this press, which is what made
+   * a long press fire the short action as well.
+   */
+  const PRESS_FALLBACK_MS = 1200;
+
+  /** @type {Map<string, {at:number, handled:boolean}>} */
+  const presses = new Map();
+
+  function beginPress(context) {
+    if (!context) return;
+    presses.set(context, { at: Date.now(), handled: false });
+  }
+
+  function endPress(message, quelle) {
+    const context = message && message.context;
+    if (!context) return;
+
+    const press = presses.get(context);
+
+    if (quelle === 'run') {
+      // The release already dealt with it; `run` arriving afterwards is the
+      // host being thorough, not a second press.
+      if (press && press.handled) {
+        presses.delete(context);
+        return;
+      }
+      // A real key was pressed and we are still waiting for its release —
+      // let the release decide, unless it never comes.
+      if (press && Date.now() - press.at < PRESS_FALLBACK_MS) return;
+    }
+
+    const dauer = press ? Date.now() - press.at : 0;
+    if (press) press.handled = true;
+    if (quelle !== 'keyup') presses.delete(context);
+
+    log('[key] ' + quelle + ' after ' + dauer + ' ms on ' + context);
+    pressLog.push({ at: new Date().toISOString().slice(11, 23), source: quelle, ms: dauer, context: context });
+    if (pressLog.length > 30) pressLog.shift();
+
+    const action = ensureAction(message);
+    action.handlePress(dauer);
+  }
+
+  /** Recent key events, so a misread press can be looked at rather than guessed. */
+  const pressLog = [];
+
+  /**
+   * Runs one gesture on a library button, off-deck.
+   * @param {string} buttonId
+   * @param {'press'|'double'|'long'} gesture
+   * @param {string} replyTo where to report back
+   */
+  function simulatePress(buttonId, gesture, replyTo) {
+    const definition = library.resolveKey({ button: buttonId });
+    if (!definition) {
+      answerSimulation(replyTo, 'no button');
+      return;
+    }
+
+    const gemeldet = [];
+    const probe = new global.KeyAction({
+      context: 'simulate',
+      ud: {
+        setBaseDataIcon: () => {},
+        showAlert: () => {},
+        logMessage: () => {},
+        openUrl: (url) => gemeldet.push(url),
+        toast: (text) => gemeldet.push(text)
+      },
+      pool: pool,
+      library: () => library,
+      renderer: renderer,
+      i18n: i18n,
+      log: log,
+      targets: targets,
+      control: control
+    });
+    // No painting: the key on the deck belongs to the real action instance.
+    probe.active = false;
+    probe.setSettings({ button: buttonId });
+
+    const lang = library.timing('long_press_ms') + 100;
+
+    const fertig = () => {
+      answerSimulation(replyTo, gemeldet.length ? gemeldet.join(' · ') : 'ok');
+      probe.destroy();
+    };
+
+    if (gesture === 'long') {
+      probe.handlePress(lang).then(fertig, fertig);
+      return;
+    }
+    if (gesture === 'double') {
+      probe.handlePress(50);
+      probe.handlePress(50).then(fertig, fertig);
+      return;
+    }
+    probe.handlePress(50).then(fertig, fertig);
+  }
+
+  function answerSimulation(replyTo, text) {
+    if (!replyTo) return;
+    $UD.sendToPropertyInspector({ response: 'simulate', result: text }, replyTo);
+  }
+
   // --- UlanziStudio events --------------------------------------------------
 
   $UD.connect(PLUGIN_UUID);
@@ -255,18 +365,9 @@
     if (action) action.setActive(message.active);
   });
 
-  $UD.onKeyDown((message) => {
-    pressStart.set(message.context, Date.now());
-  });
-
-  $UD.onRun((message) => {
-    const action = ensureAction(message);
-    const started = pressStart.get(message.context);
-    pressStart.delete(message.context);
-    // No keydown seen (e.g. simulator or multi-action) counts as a short press.
-    const duration = started ? Date.now() - started : 0;
-    action.handlePress(duration);
-  });
+  $UD.onKeyDown((message) => beginPress(message && message.context));
+  $UD.onKeyUp((message) => endPress(message, 'keyup'));
+  $UD.onRun((message) => endPress(message, 'run'));
 
   $UD.onClear((message) => {
     const items = (message && message.param) || [];
@@ -276,7 +377,7 @@
         action.destroy();
         actions.delete(item.context);
       }
-      pressStart.delete(item.context);
+      presses.delete(item.context);
     }
   });
 
@@ -289,6 +390,14 @@
     // instead of at the next poll.
     // Only the main service may open a view; an inspector asking the host
     // directly is silently ignored, so it asks us instead.
+    // The designer can try a button without anyone walking to the deck. This
+    // really acts: the same path a physical press takes, same services, same
+    // devices — anything else would test the wrong thing.
+    if (payload.request === 'simulate') {
+      simulatePress(payload.button, payload.gesture, message.context);
+      return;
+    }
+
     if (payload.request === 'open-designer') {
       const outcome = designer.open(payload.button || '');
       // Remembered so we can report back once the window is really up: the
@@ -366,6 +475,7 @@
     actions: actions,
     library: () => library,
     paints: () => global.KEY_PAINT_LOG,
+    presses: () => pressLog,
     targets: targets,
     designer: designer,
     control: control,
