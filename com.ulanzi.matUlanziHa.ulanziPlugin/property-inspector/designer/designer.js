@@ -822,7 +822,38 @@
 
   // --- button editor --------------------------------------------------------
 
+  /**
+   * Turns an old on/off pair into the two rules that mean the same thing.
+   *
+   * The tile used to carry "icon when on" and "icon when off" while rules did
+   * the same job better. Keeping both would show two models at once, so a
+   * button that still has a pair is converted the first time it is opened —
+   * the key looks exactly as before, the setting just lives in one place now.
+   */
+  function pairsToRules(entry) {
+    const style = entry.style || {};
+    const anIcon = (style.icon_on || '').trim();
+    const ausIcon = (style.icon_off || '').trim();
+    if (!anIcon || !ausIcon || anIcon === ausIcon) return false;
+    if ((entry.rules || []).length) return false;
+
+    const regeln = [
+      { id: 'rule-an-' + entry.id, scope: 'any', what: 'state', op: '=', value: 'on', icon: anIcon, bg: '' },
+      { id: 'rule-aus-' + entry.id, scope: 'all', what: 'state', op: '=', value: 'off', icon: ausIcon, bg: '' }
+    ];
+    library.updateButton(entry.id, {
+      rules: regeln,
+      style: Object.assign({}, style, { icon_on: ausIcon, icon_off: ausIcon })
+    });
+    save();
+    return true;
+  }
+
   function fillButtonForm(entry) {
+    if (pairsToRules(entry)) {
+      fillButtonForm(library.button(entry.id));
+      return;
+    }
     const fields = el('button-form').elements;
     const style = global.KeyStyle.baseStyle(entry.style);
     const own = entry.style || {};
@@ -867,15 +898,13 @@
 
     fields.mode.value = style.mode;
     fields.bg_off.value = asColor(style.bg_off, '#2a2d33');
-    fields.bg_on.value = asColor(own.bg_on, '#f4b740');
+    // An empty bg_on is exactly what makes a tile take the colour of its
+    // device — that is the automatic, not a missing setting.
     fields.bg_on_auto.checked = !own.bg_on;
     fields.text_off.value = asColor(own.text_off, '#eceef0');
     fields.text_off_auto.checked = !own.text_off;
-    fields.text_on.value = asColor(own.text_on, '#14161a');
-    fields.text_on_auto.checked = !own.text_on;
 
     fields.icon_off.value = style.icon_off || '';
-    fields.icon_on.value = style.icon_on || '';
     fields.icon_size.value = style.icon_size;
     fields.radius.value = style.radius;
 
@@ -911,11 +940,12 @@
     const style = {
       mode: fields.mode.value,
       bg_off: fields.bg_off.value,
-      bg_on: fields.bg_on_auto.checked ? '' : fields.bg_on.value,
+      // One look, not a pair: a difference between states is a display rule.
+      bg_on: fields.bg_on_auto.checked ? '' : fields.bg_off.value,
       text_off: fields.text_off_auto.checked ? '' : fields.text_off.value,
-      text_on: fields.text_on_auto.checked ? '' : fields.text_on.value,
+      text_on: fields.text_off_auto.checked ? '' : fields.text_off.value,
       icon_off: fields.icon_off.value.trim(),
-      icon_on: fields.icon_on.value.trim(),
+      icon_on: fields.icon_off.value.trim(),
       icon_size: Number(fields.icon_size.value) || 64,
       radius: Number(fields.radius.value) || 0,
       top: fields.top.value,

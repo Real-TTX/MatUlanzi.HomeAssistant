@@ -246,35 +246,28 @@
                 </div>
 
                 <div id="classic-fields">
+                  <p class="hint" data-localize="hint_tile">
+                    The base look. Display rules above override it where they match.
+                  </p>
+
                   <div class="grid-2">
                     <div class="field">
-                      <label data-localize>Background off</label>
-                      <div class="with-check"><input type="color" name="bg_off" value="#2a2d33" /></div>
-                    </div>
-                    <div class="field">
-                      <label data-localize>Background on</label>
+                      <label data-localize>Background</label>
                       <div class="with-check">
-                        <input type="color" name="bg_on" value="#f4b740" />
+                        <input type="color" name="bg_off" value="#2a2d33" />
                         <label class="check">
-                          <input type="checkbox" name="bg_on_auto" /><span data-localize>from entity</span>
+                          <input type="checkbox" name="bg_on_auto" />
+                          <span data-localize>colour from the device when on</span>
                         </label>
                       </div>
                     </div>
                     <div class="field">
-                      <label data-localize>Text off</label>
+                      <label data-localize>Text colour</label>
                       <div class="with-check">
                         <input type="color" name="text_off" value="#eceef0" />
                         <label class="check">
-                          <input type="checkbox" name="text_off_auto" /><span data-localize>auto</span>
-                        </label>
-                      </div>
-                    </div>
-                    <div class="field">
-                      <label data-localize>Text on</label>
-                      <div class="with-check">
-                        <input type="color" name="text_on" value="#14161a" />
-                        <label class="check">
-                          <input type="checkbox" name="text_on_auto" /><span data-localize>auto</span>
+                          <input type="checkbox" name="text_off_auto" />
+                          <span data-localize>auto</span>
                         </label>
                       </div>
                     </div>
@@ -282,23 +275,13 @@
 
                   <div class="grid-2">
                     <div class="field">
-                      <label data-localize>Icon off</label>
+                      <label data-localize>Icon</label>
                       <div class="icon-field">
                         <span class="icon-preview" data-icon-preview="icon_off"></span>
                         <input type="text" name="icon_off" placeholder="—" />
                         <button type="button" data-icon-browse="icon_off" data-localize>Choose</button>
                         <button type="button" data-pick-icon="icon_off" data-localize>File…</button>
                         <button type="button" data-clear-icon="icon_off">✕</button>
-                      </div>
-                    </div>
-                    <div class="field">
-                      <label data-localize>Icon on</label>
-                      <div class="icon-field">
-                        <span class="icon-preview" data-icon-preview="icon_on"></span>
-                        <input type="text" name="icon_on" placeholder="—" />
-                        <button type="button" data-icon-browse="icon_on" data-localize>Choose</button>
-                        <button type="button" data-pick-icon="icon_on" data-localize>File…</button>
-                        <button type="button" data-clear-icon="icon_on">✕</button>
                       </div>
                     </div>
                     <div class="field">

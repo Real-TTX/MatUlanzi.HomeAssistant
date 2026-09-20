@@ -242,6 +242,9 @@
     "Long": "Long",
     "Running…": "Running…",
     "Text colour": "Text colour",
-    "Leave empty to keep the tile setting": "Leave empty to keep the tile setting"
+    "Leave empty to keep the tile setting": "Leave empty to keep the tile setting",
+    "Icon": "Icon",
+    "colour from the device when on": "colour from the device when on",
+    "hint_tile": "The base look. Display rules above override it where they match."
   }
 }

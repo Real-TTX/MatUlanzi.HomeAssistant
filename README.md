@@ -155,6 +155,31 @@ Unter der Vorschau — die sich jetzt einklappen lässt — sitzen drei Knöpfe:
 mit denselben Diensten an denselben Geräten, und melden zurück, was passiert
 ist. Damit lässt sich ein Button prüfen, ohne zum Deck zu laufen.
 
+### Die Kachel ist die Grundeinstellung, nicht ein zweites Modell
+
+Unter „Kachel" standen weiter „Hintergrund An/Aus" und „Icon An/Aus" — also das
+alte Paar-Denken neben den Regeln, die dasselbe besser können. Zwei Modelle
+nebeneinander, und keins davon eindeutig zuständig.
+
+Die Kachel trägt jetzt **ein** Aussehen: eine Hintergrundfarbe, eine Textfarbe,
+ein Icon. Ein Unterschied zwischen Zuständen ist eine Regel — dafür sind sie da.
+
+Das Häkchen „Farbe vom Gerät, wenn an" bleibt, weil genau das die Automatik ist:
+ein leeres `bg_on` heißt „nimm die Farbe der Domain". Deshalb ist ein Rollo blau,
+ohne dass jemand Blau eingestellt hätte.
+
+Buttons mit einem alten Icon-Paar werden beim ersten Öffnen umgewandelt, und die
+Taste sieht danach exakt gleich aus:
+
+```
+vorher   icon_on = mdi:lightbulb, icon_off = mdi:lightbulb-outline
+nachher  Regel   any state = on  → mdi:lightbulb
+         Regel   all state = off → mdi:lightbulb-outline
+         Kachel  Icon = mdi:lightbulb-outline
+
+gemessen: Licht an → gemalt wird mdi:lightbulb, wie vorher
+```
+
 ### Regeln bestimmen das ganze Aussehen
 
 Eine Anzeigeregel setzt Icon, Hintergrund, **Textfarbe und die drei Textzeilen**.
