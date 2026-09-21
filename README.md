@@ -155,6 +155,26 @@ Unter der Vorschau — die sich jetzt einklappen lässt — sitzen drei Knöpfe:
 mit denselben Diensten an denselben Geräten, und melden zurück, was passiert
 ist. Damit lässt sich ein Button prüfen, ohne zum Deck zu laufen.
 
+### Gezeichnete Icons: das Rollo zeigt seinen Stand
+
+Ein festes Icon kann sagen „das ist ein Rollo", aber nicht, **wie weit** es offen
+ist. Deshalb gibt es Icons, die der Renderer aus dem Zustand zeichnet, kenntlich
+am Präfix `widget:`:
+
+```
+  0 %        25 %        50 %        75 %
+  ███        ███         ███         ▁▁▁
+  ███        ███         ▁▁▁         ▁▁▁
+  ███        ▁▁▁         ▁▁▁         ▁▁▁
+```
+
+`widget:shutter` malt ein Fenster mit Kreuz und einen Raffstore, der von oben
+so weit herunterhängt, wie das Rollo geschlossen ist. Die Prozentzahl steht
+darunter — sie bestätigt, statt die ganze Botschaft zu tragen.
+
+Für Rollos schlägt die Automatik das gezeichnete Icon vor, ohne dass jemand
+etwas einstellen muss.
+
 ### Eine Taste zeichnet nicht mehr auf der Leinwand der anderen
 
 Auf dem Gerät erschien eine Taste mit dem Bild einer anderen: Deckenlicht mit

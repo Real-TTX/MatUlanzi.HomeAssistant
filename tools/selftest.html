@@ -367,6 +367,30 @@
         check('Default greift', KS.mergeStyle(null, {}).center === '{{value}}');
         check('Fremdfelder werden ignoriert', KS.mergeStyle(null, { entity_id: 'light.x' }).entity_id === undefined);
 
+        section('Rollo-Icon zeichnet den Stand');
+        {
+          const renderer = new KeyRenderer();
+          const stil = KeyStyle.baseStyle({ icon_off: 'widget:shutter', icon_on: 'widget:shutter', bg_off: '#2a2d33', center: '', bottom: '{{value}}' });
+
+          const bilder = {};
+          for (const stand of [0, 0.5, 1]) {
+            bilder[stand] = await renderer.render(
+              { ctx: { name: 'Rollo', value: Math.round(stand * 100) + '%' }, progress: stand },
+              stil
+            );
+          }
+          check('offen sieht anders aus als zu', bilder[0] !== bilder[1]);
+          check('halb offen ist wieder etwas anderes', bilder[0.5] !== bilder[0] && bilder[0.5] !== bilder[1]);
+          check('gleicher Stand ergibt gleiches Bild', bilder[1] === (await renderer.render({ ctx: { name: 'Rollo', value: '100%' }, progress: 1 }, stil)));
+
+          const ohneStand = await renderer.render({ ctx: { name: 'Rollo', value: '--' } }, stil);
+          check('ohne Positionsangabe wird trotzdem gezeichnet', Boolean(ohneStand));
+
+          const vorschlag = DisplayRules.suggest('cover.x');
+          check('Rollo bekommt das gezeichnete Icon', vorschlag[0].icon === 'widget:shutter');
+          check('und die Prozentzahl darunter', vorschlag[0].bottom === '{{value}}');
+        }
+
         section('Zwei Tasten gleichzeitig zeichnen');
         {
           const renderer = new KeyRenderer();
@@ -694,7 +718,7 @@
 
           check('Vorschlag für Licht', dr.suggest('light.x').length === 2);
           check('Vorschlag für Klima kennt heizen', dr.suggest('climate.x').some((r) => r.icon === 'mdi:fire'));
-          check('Vorschlag für Rollo kennt offen', dr.suggest('cover.x').some((r) => r.icon === 'mdi:window-shutter-open'));
+          check('Vorschlag für Rollo zeichnet den Stand', dr.suggest('cover.x').some((r) => r.icon === 'widget:shutter'));
           check('unbekannte Domain schlägt nichts vor', dr.suggest('sensor.x').length === 0);
         }
 

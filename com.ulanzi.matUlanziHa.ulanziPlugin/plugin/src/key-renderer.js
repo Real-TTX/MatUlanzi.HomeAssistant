@@ -106,6 +106,82 @@
     return out;
   }
 
+  /**
+   * A window with its shutter at the actual position.
+   *
+   * A static icon can say "this is a cover"; it cannot say how far it is open.
+   * Drawing it from the state does, and at a glance — the number underneath is
+   * then confirmation rather than the only source.
+   *
+   * @param {number} open 0..1, 1 being fully open
+   */
+  function drawShutter(ctx, x, y, size, open, colour) {
+    const offen = Math.max(0, Math.min(1, typeof open === 'number' ? open : 0));
+    const rahmen = Math.max(2, Math.round(size * 0.05));
+    const innenX = x + rahmen;
+    const innenY = y + rahmen;
+    const innenB = size - rahmen * 2;
+    const innenH = size - rahmen * 2;
+
+    ctx.save();
+
+    // Glass: a hint of sky, so a raised shutter reads as "open".
+    ctx.fillStyle = withAlpha(colour, 0.13);
+    ctx.fillRect(innenX, innenY, innenB, innenH);
+
+    // Window cross, so it is a window and not a progress bar.
+    ctx.strokeStyle = withAlpha(colour, 0.3);
+    ctx.lineWidth = Math.max(1, size * 0.02);
+    ctx.beginPath();
+    ctx.moveTo(innenX + innenB / 2, innenY);
+    ctx.lineTo(innenX + innenB / 2, innenY + innenH);
+    ctx.moveTo(innenX, innenY + innenH / 2);
+    ctx.lineTo(innenX + innenB, innenY + innenH / 2);
+    ctx.stroke();
+
+    // The shutter hangs from the top.
+    const bedeckt = Math.round(innenH * (1 - offen));
+    if (bedeckt > 0) {
+      ctx.fillStyle = colour;
+      ctx.fillRect(innenX, innenY, innenB, bedeckt);
+
+      // Slats, drawn in the background colour so they read as gaps.
+      const lamelle = Math.max(3, Math.round(size * 0.09));
+      ctx.strokeStyle = withAlpha(colour, 0.0);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = Math.max(1, size * 0.015);
+      ctx.beginPath();
+      for (let linie = innenY + lamelle; linie < innenY + bedeckt; linie += lamelle) {
+        ctx.moveTo(innenX, linie);
+        ctx.lineTo(innenX + innenB, linie);
+      }
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Frame last, so it sits over both glass and shutter.
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = rahmen;
+    ctx.strokeRect(x + rahmen / 2, y + rahmen / 2, size - rahmen, size - rahmen);
+
+    ctx.restore();
+  }
+
+  /** A colour with an alpha, for both #rrggbb and rgb() inputs. */
+  function withAlpha(colour, alpha) {
+    const treffer = /^#([0-9a-f]{6})$/i.exec(String(colour || ''));
+    if (treffer) {
+      const wert = parseInt(treffer[1], 16);
+      return 'rgba(' + ((wert >> 16) & 255) + ',' + ((wert >> 8) & 255) + ',' + (wert & 255) + ',' + alpha + ')';
+    }
+    const rgb = /rgba?(([^)]+))/.exec(String(colour || ''));
+    if (rgb) {
+      const teile = rgb[1].split(',').slice(0, 3).map((n) => n.trim());
+      return 'rgba(' + teile.join(',') + ',' + alpha + ')';
+    }
+    return 'rgba(255,255,255,' + alpha + ')';
+  }
+
   class KeyRenderer {
     /**
      * Deliberately stateless.
@@ -209,7 +285,10 @@
       // mdi: icons are tinted, so they need the text colour — hence loading them
       // only now that it is known.
       const iconSource = active ? style.icon_on || style.icon_off : style.icon_off;
-      const icon = iconSource
+      // A widget: icon is drawn from the state rather than loaded, so it can
+      // show *how far* something is open, not just what it is.
+      const widget = iconSource && iconSource.indexOf('widget:') === 0 ? iconSource.slice(7) : '';
+      const icon = iconSource && !widget
         ? await global.KeyStyle.loadImage(iconSource, textColor)
         : null;
 
@@ -234,10 +313,14 @@
       const hasBar = style.show_bar !== '0' && typeof view.progress === 'number' && view.progress >= 0;
       const bottomLines = bottom ? 1 : 0;
 
-      if (icon) {
+      if (icon || widget) {
         const size = Math.max(24, Math.min(120, Number(style.icon_size) || 64));
         const iconY = bottomLines ? 34 : 46;
-        ctx.drawImage(icon, (SIZE - size) / 2, iconY, size, size);
+        if (widget === 'shutter') {
+          drawShutter(ctx, (SIZE - size) / 2, iconY, size, view.progress, textColor);
+        } else if (icon) {
+          ctx.drawImage(icon, (SIZE - size) / 2, iconY, size, size);
+        }
 
         if (center) {
           ctx.fillStyle = textColor;
@@ -259,7 +342,7 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.font = 'bold 23px ' + FONT_STACK;
-        const lines = wrapLines(ctx, bottom, maxWidth, icon ? 1 : 2);
+        const lines = wrapLines(ctx, bottom, maxWidth, icon || widget ? 1 : 2);
         const baseline = SIZE - padding - (hasBar ? 14 : 0);
         const lineHeight = 25;
         lines.forEach((line, index) => {

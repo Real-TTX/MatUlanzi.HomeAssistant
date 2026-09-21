@@ -169,9 +169,10 @@
       ];
     }
     if (domain === 'cover') {
+      // A drawn shutter shows how far it is open; the percentage underneath
+      // then confirms rather than carries the whole message.
       return [
-        { scope: SCOPE.all, what: 'state', op: '=', value: 'closed', icon: 'mdi:window-shutter', bg: '' },
-        { scope: SCOPE.any, what: 'state', op: '=', value: 'open', icon: 'mdi:window-shutter-open', bg: '' }
+        { scope: SCOPE.any, what: 'state', op: '!=', value: 'unavailable', icon: 'widget:shutter', bg: '', center: '', bottom: '{{value}}' }
       ];
     }
     if (domain === 'climate') {
