@@ -155,6 +155,42 @@ Unter der Vorschau — die sich jetzt einklappen lässt — sitzen drei Knöpfe:
 mit denselben Diensten an denselben Geräten, und melden zurück, was passiert
 ist. Damit lässt sich ein Button prüfen, ohne zum Deck zu laufen.
 
+### Eine Taste zeichnet nicht mehr auf der Leinwand der anderen
+
+Auf dem Gerät erschien eine Taste mit dem Bild einer anderen: Deckenlicht mit
+dem Hintergrund des Rolladen-Buttons. Die Ursache war ein Konstruktionsfehler:
+
+```
+main.js         ein KeyRenderer für alle Tasten
+key-renderer.js eine Leinwand als Instanz-Zustand
+                render() ist async und wartet auf Icons
+```
+
+Taste A malte ihren Hintergrund, **wartete** aufs Icon, und in dieser Pause malte
+Taste B auf dieselbe Leinwand. Wenn A weitermachte, lag ihr Icon auf B’s Bild.
+Im Zeichenprotokoll sieht man die Verschachtelung: `3_1, 4_1, 3_1, 4_1`.
+
+Der Renderer hat jetzt **gar keinen** Zustand mehr — jede Zeichnung bekommt ihre
+eigene Leinwand, also können sich zwei nicht mehr begegnen. Ein Test zeichnet
+vier Kacheln gleichzeitig und vergleicht mit dem Ergebnis nacheinander.
+
+### „Anpassen" zeigt die ganze Automatik
+
+Eine Aktion ersetzt nur *ihren* Auslöser; die anderen bleiben automatisch. Das
+sah man aber nirgends, und „langer Druck soll nichts tun" ließ sich gar nicht
+ausdrücken — ohne Zeile greift die Automatik, und die identifiziert.
+
+Deshalb schreibt „Anpassen" jetzt alles aus, was die Automatik tut:
+
+```
+Kurzer Druck  ·  Dienst          ·  cover.toggle
+Doppelklick   ·  Nichts
+Langer Druck  ·  Identifizieren
+```
+
+„Nichts" ist dabei eine Aktionsart wie jede andere — ohne sie bedeutet eine
+fehlende Zeile „nimm die Automatik" statt „bleib still".
+
 ### Die Kachel ist die Grundeinstellung, nicht ein zweites Modell
 
 Unter „Kachel" standen weiter „Hintergrund An/Aus" und „Icon An/Aus" — also das

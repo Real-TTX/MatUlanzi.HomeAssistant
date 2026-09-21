@@ -248,6 +248,8 @@
     "Leave empty to keep the tile setting": "Leer lassen: Einstellung der Kachel gilt",
     "Icon": "Icon",
     "colour from the device when on": "Farbe vom Gerät, wenn an",
-    "hint_tile": "Das Grund-Aussehen. Anzeigeregeln oben überschreiben es, wo sie zutreffen."
+    "hint_tile": "Das Grund-Aussehen. Anzeigeregeln oben überschreiben es, wo sie zutreffen.",
+    "Identify (show what it is)": "Identifizieren (zeigt, was es ist)",
+    "Nothing": "Nichts"
   }
 }

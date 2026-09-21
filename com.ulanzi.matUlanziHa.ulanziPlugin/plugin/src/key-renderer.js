@@ -107,11 +107,21 @@
   }
 
   class KeyRenderer {
-    constructor() {
-      this.canvas = global.document.createElement('canvas');
-      this.canvas.width = SIZE;
-      this.canvas.height = SIZE;
-      this.ctx = this.canvas.getContext('2d');
+    /**
+     * Deliberately stateless.
+     *
+     * One renderer is shared by every key, and drawing is asynchronous — it
+     * waits for icons to load. A canvas held on the instance therefore had two
+     * keys painting on it at once: the first drew its background, awaited its
+     * icon, and meanwhile the second drew its own background over it. The
+     * result was one key wearing another key’s picture. Each render now gets
+     * its own canvas, so they cannot meet.
+     */
+    _newCanvas() {
+      const canvas = global.document.createElement('canvas');
+      canvas.width = SIZE;
+      canvas.height = SIZE;
+      return { canvas: canvas, ctx: canvas.getContext('2d') };
     }
 
     /**
@@ -140,18 +150,20 @@
       const image = await global.KeyStyle.htmlToImage(html, SIZE);
       if (!image) return null;
 
-      const ctx = this.ctx;
+      const flaeche = this._newCanvas();
+      const ctx = flaeche.ctx;
       ctx.clearRect(0, 0, SIZE, SIZE);
       ctx.drawImage(image, 0, 0, SIZE, SIZE);
       try {
-        return this.canvas.toDataURL('image/png');
+        return flaeche.canvas.toDataURL('image/png');
       } catch (err) {
         return null; // tainted canvas — caller falls back to classic
       }
     }
 
     async _renderClassic(view, style) {
-      const ctx = this.ctx;
+      const flaeche = this._newCanvas();
+      const ctx = flaeche.ctx;
       const context = view.ctx || {};
       const active = Boolean(view.active) && !view.unavailable;
 
@@ -270,7 +282,7 @@
         ctx.fill();
       }
 
-      return this.canvas.toDataURL('image/png');
+      return flaeche.canvas.toDataURL('image/png');
     }
   }
 

@@ -508,6 +508,16 @@
 
       await this._withBusy(async () => {
         for (const action of liste) {
+          // "Nothing" is a real answer, not a missing one: without it there is no
+          // way to say that a long press should stay quiet, because an empty list
+          // means "fall back to the automatic", which identifies.
+          if (action.kind === 'none') continue;
+
+          if (action.kind === 'identify') {
+            this.identify(def);
+            continue;
+          }
+
           // Opening the control window is an action like any other, so a key can
           // switch something *and* bring the knobs up.
           if (action.kind === 'window') {

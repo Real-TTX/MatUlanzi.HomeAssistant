@@ -806,3 +806,18 @@ button.link {
   padding: 6px 4px;
   font-size: 12px;
 }
+
+/* Colour plus a tick: unticked leaves the tile's value alone. */
+.ha-rule-colour {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ha-rule-colour input[type='color'] {
+  width: 34px;
+}
+
+.ha-rule-colour input[type='color']:disabled {
+  opacity: 0.35;
+}

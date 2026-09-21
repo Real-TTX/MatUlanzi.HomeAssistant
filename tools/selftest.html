@@ -367,12 +367,66 @@
         check('Default greift', KS.mergeStyle(null, {}).center === '{{value}}');
         check('Fremdfelder werden ignoriert', KS.mergeStyle(null, { entity_id: 'light.x' }).entity_id === undefined);
 
+        section('Zwei Tasten gleichzeitig zeichnen');
+        {
+          const renderer = new KeyRenderer();
+
+          const kachel = (name, bg) => ({
+            ctx: { name: name, value: name },
+            active: false,
+            unavailable: false
+          });
+          const stil = (bg) => KeyStyle.baseStyle({ bg_off: bg, bg_on: bg, icon_off: '', icon_on: '', center: '{{value}}' });
+
+          // Gleichzeitig starten: genau so entstand das Bild einer Taste auf der
+          // anderen, weil beide dieselbe Leinwand benutzten.
+          const beide = await Promise.all([
+            renderer.render(kachel('AAA'), stil('#ff0000')),
+            renderer.render(kachel('BBB'), stil('#0000ff'))
+          ]);
+
+          check('beide Bilder entstanden', Boolean(beide[0]) && Boolean(beide[1]));
+          check('und sie sind verschieden', beide[0] !== beide[1]);
+
+          const nacheinander = [];
+          nacheinander.push(await renderer.render(kachel('AAA'), stil('#ff0000')));
+          nacheinander.push(await renderer.render(kachel('BBB'), stil('#0000ff')));
+
+          check('gleichzeitig gezeichnet ergibt dasselbe wie nacheinander (A)', beide[0] === nacheinander[0]);
+          check('dasselbe für B', beide[1] === nacheinander[1]);
+
+          const viele = await Promise.all([
+            renderer.render(kachel('AAA'), stil('#ff0000')),
+            renderer.render(kachel('BBB'), stil('#0000ff')),
+            renderer.render(kachel('CCC'), stil('#00ff00')),
+            renderer.render(kachel('AAA'), stil('#ff0000'))
+          ]);
+          check('vier auf einmal: gleiche Eingabe, gleiches Bild', viele[0] === viele[3]);
+          check('und unterschiedliche bleiben unterschiedlich', new Set(viele).size === 3);
+        }
+
         section('Renderer');
         const renderer = new KeyRenderer();
 
-        // Pixelprobe: greift eine konfigurierte Hintergrundfarbe wirklich?
-        await renderer.render({ ctx: { name: 'X', value: 'Y' } }, { bg_off: '#ff0000' });
-        const probe = renderer.ctx.getImageData(98, 62, 1, 1).data;
+        // Pixelprobe über das fertige Bild statt über den Renderer-Zustand:
+        // der hat keinen mehr, seit jede Zeichnung ihre eigene Leinwand bekommt.
+        async function pixelAus(datenUrl, x, y) {
+          const bild = new Image();
+          await new Promise((fertig, schief) => {
+            bild.onload = fertig;
+            bild.onerror = schief;
+            bild.src = datenUrl;
+          });
+          const flaeche = document.createElement('canvas');
+          flaeche.width = bild.width;
+          flaeche.height = bild.height;
+          const ctx = flaeche.getContext('2d');
+          ctx.drawImage(bild, 0, 0);
+          return ctx.getImageData(x, y, 1, 1).data;
+        }
+
+        const rotesBild = await renderer.render({ ctx: { name: 'X', value: 'Y' } }, { bg_off: '#ff0000' });
+        const probe = await pixelAus(rotesBild, 98, 62);
         check('bg_off wird angewendet', probe[0] > 200 && probe[1] < 60, 'rgb(' + probe[0] + ',' + probe[1] + ',' + probe[2] + ')');
 
         const bulbIcon =

@@ -132,10 +132,12 @@
     const kind = doc.createElement('select');
     kind.appendChild(option('service', t('Home Assistant service')));
     kind.appendChild(option('window', t('Open control window')));
-    kind.value = action.kind === 'window' ? 'window' : 'service';
+    kind.appendChild(option('identify', t('Identify (show what it is)')));
+    kind.appendChild(option('none', t('Nothing')));
+    kind.value = ['window', 'identify', 'none'].indexOf(action.kind) !== -1 ? action.kind : 'service';
     kind.addEventListener('change', () => {
       action.kind = kind.value;
-      if (action.kind === 'window') {
+      if (action.kind !== 'service') {
         // The window needs no service; leaving the old one would show a call
         // that never happens.
         action.domain = '';
@@ -160,21 +162,21 @@
     head.appendChild(trigger);
     head.appendChild(kind);
     head.appendChild(entity);
-    if (action.kind !== 'window') head.appendChild(service);
+    if (action.kind === 'service') head.appendChild(service);
     head.appendChild(remove);
 
-    head.classList.toggle('ha-action-head-window', action.kind === 'window');
+    head.classList.toggle('ha-action-head-window', action.kind !== 'service');
     row.appendChild(head);
 
     const fields = element('div', 'ha-action-fields');
-    if (action.kind !== 'window') row.appendChild(fields);
+    if (action.kind === 'service') row.appendChild(fields);
 
     const json = doc.createElement('textarea');
     json.className = 'ha-action-json';
     json.spellcheck = false;
     json.value = action.data || '';
     json.placeholder = '{ }';
-    if (action.kind === 'window') json.classList.add('hidden');
+    if (action.kind !== 'service') json.classList.add('hidden');
     json.addEventListener('change', () => {
       action.data = json.value;
       this._changed();
@@ -184,7 +186,7 @@
 
     // The entity decides which services are on offer; without one we fall back
     // to the button's first entity so the list is never empty.
-    if (action.kind === 'window') return row;
+    if (action.kind !== 'service') return row;
 
     const fuer = action.entity || deps.entitiesOf()[0] || '';
     deps.catalogue().then((katalog) => {

@@ -1200,26 +1200,34 @@
     el('rules-reset').classList.toggle('hidden', !hatRegeln);
   }
 
-  /** Turns the automatic behaviour into rows you can edit. */
+  /**
+   * Writes the automatic behaviour out as rows — all of it, not a sample.
+   *
+   * Showing only the short press would hide that a long press identifies and
+   * that a double click does nothing, and those are exactly the things one
+   * wants to change. "Nothing" is a row like any other, because without it a
+   * missing row means "fall back to the automatic" rather than "stay quiet".
+   */
   function materialiseActions(entry) {
-    const entities = global.Library.entitiesOf(entry);
-    const erste = entities[0] || '';
+    const erste = global.Library.entitiesOf(entry)[0] || '';
     const domain = erste.split('.')[0];
+    const stempel = Date.now().toString(36);
 
-    const vorschlag = domain
-      ? [
-          {
-            id: 'act-' + Date.now().toString(36),
-            trigger: 'press',
-            kind: 'service',
-            entity: '',
-            domain: domain === 'cover' ? 'cover' : 'homeassistant',
-            service: 'toggle',
-            data: ''
-          }
-        ]
-      : [];
-    library.updateButton(entry.id, { actions: vorschlag });
+    const zeilen = [
+      {
+        id: 'act-' + stempel + 'a',
+        trigger: 'press',
+        kind: 'service',
+        entity: '',
+        domain: domain === 'cover' ? 'cover' : 'homeassistant',
+        service: 'toggle',
+        data: ''
+      },
+      { id: 'act-' + stempel + 'b', trigger: 'double', kind: 'none', entity: '' },
+      { id: 'act-' + stempel + 'c', trigger: 'long', kind: 'identify', entity: '' }
+    ];
+
+    library.updateButton(entry.id, { actions: domain ? zeilen : [] });
     save();
     fillButtonForm(library.button(entry.id));
   }

@@ -25,6 +25,40 @@
     return node;
   }
 
+  /**
+   * A colour with a tick: unticked means "leave the tile’s value alone".
+   * Without it the swatch showed a colour the rule did not actually set.
+   */
+  function farbfeld(rule, feld, vorgabe, titel, onChange) {
+    const wrap = element('span', 'ha-rule-colour');
+    const an = doc.createElement('input');
+    an.type = 'checkbox';
+    an.checked = /^#[0-9a-f]{6}$/i.test(rule[feld] || '');
+    an.title = titel;
+
+    const farbe = doc.createElement('input');
+    farbe.type = 'color';
+    farbe.value = an.checked ? rule[feld] : vorgabe;
+    farbe.title = titel;
+    farbe.disabled = !an.checked;
+
+    an.addEventListener('change', () => {
+      farbe.disabled = !an.checked;
+      rule[feld] = an.checked ? farbe.value : '';
+      onChange();
+    });
+    farbe.addEventListener('change', () => {
+      an.checked = true;
+      farbe.disabled = false;
+      rule[feld] = farbe.value;
+      onChange();
+    });
+
+    wrap.appendChild(an);
+    wrap.appendChild(farbe);
+    return wrap;
+  }
+
   function newId() {
     return 'rule-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
   }
@@ -166,14 +200,9 @@
       });
     });
 
-    const farbe = doc.createElement('input');
-    farbe.type = 'color';
-    farbe.value = /^#[0-9a-f]{6}$/i.test(rule.bg || '') ? rule.bg : '#2a2d33';
-    farbe.title = t('Background');
-    farbe.addEventListener('change', () => {
-      rule.bg = farbe.value;
-      this._changed();
-    });
+    // A colour input always shows *some* colour, so without the tick a rule
+    // looked as if it set a background when it left the tile alone.
+    const farbe = farbfeld(rule, 'bg', '#2a2d33', t('Background'), () => this._changed());
 
     const runter = element('button', 'ha-rule-move', '\u2193');
     runter.type = 'button';
@@ -201,14 +230,7 @@
     // and "how it looks" are one decision, and splitting them was confusing.
     const texte = element('div', 'ha-rule-text');
 
-    const textfarbe = doc.createElement('input');
-    textfarbe.type = 'color';
-    textfarbe.value = /^#[0-9a-f]{6}$/i.test(rule.text || '') ? rule.text : '#eceef0';
-    textfarbe.title = t('Text colour');
-    textfarbe.addEventListener('change', () => {
-      rule.text = textfarbe.value;
-      this._changed();
-    });
+    const textfarbe = farbfeld(rule, 'text', '#eceef0', t('Text colour'), () => this._changed());
     texte.appendChild(textfarbe);
 
     for (const zeile of ['top', 'center', 'bottom']) {
