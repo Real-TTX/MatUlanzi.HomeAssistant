@@ -1275,6 +1275,17 @@
           const zustand = verbindung && erste ? verbindung.client.getState(erste) : null;
           return zustand && zustand.attributes ? Object.keys(zustand.attributes).sort() : [];
         },
+        autoColour: () => {
+          const aktuell = library.button(selection.id);
+          if (!aktuell) return '#2a2d33';
+          const erste = global.Library.entitiesOf(aktuell)[0] || '';
+          if (!erste) return '#2a2d33';
+          const verbindung = pool.get(aktuell.connection) || pool.entries()[0];
+          const zustand = verbindung ? verbindung.client.getState(erste) : null;
+          // Exactly what the key would use, including a lamp that is currently
+          // showing its own colour.
+          return toHex(global.HaDomains.accentColor(erste, zustand));
+        },
         pickIcon: (aktuell, fertig) => openIconBrowserFor(aktuell, fertig),
         onChange: (rules) => {
           if (!selection.id) return;
@@ -1328,6 +1339,28 @@
 
     function applyGroupVisibility(entityCount) {
     el('group-rule-field').classList.toggle('hidden', entityCount < 2);
+  }
+
+  /** A colour input only understands hex, while an accent may be rgb(). */
+  function toHex(colour) {
+    const text = String(colour || '').trim();
+    if (/^#[0-9a-f]{6}$/i.test(text)) return text;
+
+    const auf = text.indexOf('(');
+    const zu = text.indexOf(')');
+    if (auf === -1 || zu === -1) return '#2a2d33';
+
+    const teile = text
+      .slice(auf + 1, zu)
+      .split(',')
+      .map((n) => Number(n.trim()));
+    if (teile.length < 3 || teile.some((n) => isNaN(n))) return '#2a2d33';
+
+    const paar = (n) => {
+      const b = Math.max(0, Math.min(255, Math.round(n)));
+      return (b < 16 ? '0' : '') + b.toString(16);
+    };
+    return '#' + paar(teile[0]) + paar(teile[1]) + paar(teile[2]);
   }
 
   function asColor(value, fallback) {

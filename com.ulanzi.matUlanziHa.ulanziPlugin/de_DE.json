@@ -250,6 +250,7 @@
     "colour from the device when on": "Farbe vom Gerät, wenn an",
     "hint_tile": "Das Grund-Aussehen. Anzeigeregeln oben überschreiben es, wo sie zutreffen.",
     "Identify (show what it is)": "Identifizieren (zeigt, was es ist)",
-    "Nothing": "Nichts"
+    "Nothing": "Nichts",
+    "automatic": "automatisch"
   }
 }

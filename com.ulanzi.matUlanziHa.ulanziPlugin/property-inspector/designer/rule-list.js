@@ -29,7 +29,7 @@
    * A colour with a tick: unticked means "leave the tile’s value alone".
    * Without it the swatch showed a colour the rule did not actually set.
    */
-  function farbfeld(rule, feld, vorgabe, titel, onChange) {
+  function farbfeld(rule, feld, vorgabe, titel, vorgabeTitel, onChange) {
     const wrap = element('span', 'ha-rule-colour');
     const an = doc.createElement('input');
     an.type = 'checkbox';
@@ -38,7 +38,11 @@
 
     const farbe = doc.createElement('input');
     farbe.type = 'color';
+    // Unticked shows the colour that will actually be used — the one the
+    // automatic picks from the device — instead of a grey nothing. A swatch
+    // showing something else than the key does was the confusing part.
     farbe.value = an.checked ? rule[feld] : vorgabe;
+    farbe.title = an.checked ? titel : titel + ' — ' + vorgabeTitel;
     farbe.title = titel;
     farbe.disabled = !an.checked;
 
@@ -202,7 +206,7 @@
 
     // A colour input always shows *some* colour, so without the tick a rule
     // looked as if it set a background when it left the tile alone.
-    const farbe = farbfeld(rule, 'bg', '#2a2d33', t('Background'), () => this._changed());
+    const farbe = farbfeld(rule, 'bg', deps.autoColour(), t('Background'), t('automatic'), () => this._changed());
 
     const runter = element('button', 'ha-rule-move', '\u2193');
     runter.type = 'button';
@@ -230,7 +234,7 @@
     // and "how it looks" are one decision, and splitting them was confusing.
     const texte = element('div', 'ha-rule-text');
 
-    const textfarbe = farbfeld(rule, 'text', '#eceef0', t('Text colour'), () => this._changed());
+    const textfarbe = farbfeld(rule, 'text', '#eceef0', t('Text colour'), t('automatic'), () => this._changed());
     texte.appendChild(textfarbe);
 
     for (const zeile of ['top', 'center', 'bottom']) {
