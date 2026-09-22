@@ -175,3 +175,12 @@ main {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+
+/* The wrapper exists only so the SDK finds something to localize; it must not
+   come between the body's flex column and the parts that fill it. */
+.ha-control-body > .uspi-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}

@@ -19,6 +19,7 @@
           '../../plugin/src/ha-client.js',
           '../../plugin/src/ha-registry.js',
           '../../plugin/src/ha-domains.js',
+          '../../plugin/src/ha-capabilities.js',
           '../../plugin/src/i18n.js',
           '../common/color-controls.js',
           '../common/cover-control.js'
@@ -31,6 +32,12 @@
     </script>
   </head>
   <body class="ha-control-body">
+    <!--
+      The SDK only loads the locale file when it finds this wrapper, and gives
+      up silently otherwise - which is how this window ended up German in its
+      buttons and English in its headings.
+    -->
+    <div class="uspi-wrapper">
     <header class="ha-control-head">
       <div>
         <div class="ha-control-name" id="name">…</div>
@@ -46,6 +53,7 @@
       <span class="spacer"></span>
       <span id="status"></span>
     </footer>
+    </div>
 
     <script>
       document.write(

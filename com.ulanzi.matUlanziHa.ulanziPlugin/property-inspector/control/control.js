@@ -13,7 +13,27 @@
   const doc = global.document;
   const el = (id) => doc.getElementById(id);
   const i18n = new global.I18n('en');
-  const t = (key) => i18n.t(key);
+
+  /**
+   * The locale file first, the small in-code table second.
+   *
+   * The table exists for the key faces, where a failed fetch would be worse
+   * than a duplicated string. A window has no such worry and says far more, so
+   * it reads the same JSON as every other property inspector - and only falls
+   * back when that JSON has nothing to offer.
+   */
+  const t = (key) => {
+    const uebersetzt = $UD && $UD.t ? $UD.t(key) : key;
+    return uebersetzt && uebersetzt !== key ? uebersetzt : i18n.t(key);
+  };
+
+  /**
+   * Home Assistant names its heating modes in English and always will - they
+   * are part of the API, not of the interface. Only these few are fixed enough
+   * to translate; fan speeds and presets are whatever the device calls them.
+   */
+  const HVAC = ['off', 'heat', 'cool', 'heat_cool', 'auto', 'dry', 'fan_only'];
+  const modeLabel = (modus) => (HVAC.indexOf(modus) === -1 ? modus : t('hvac:' + modus));
 
   /** Sliders fire continuously; Home Assistant does not need every step. */
   const SEND_DEBOUNCE_MS = 220;
@@ -210,40 +230,53 @@
     const domain = domains.domainOf(entityId);
     const attrs = state.attributes || {};
     const an = domains.isActive(entityId, state);
+    const kann = (was) => global.HaCapabilities.can(entityId, state, was);
 
-    panel.appendChild(
-      buttonRow([
-        { label: t('On'), active: an, run: () => call(domain, 'turn_on') },
-        { label: t('Off'), active: !an, run: () => call(domain, 'turn_off') }
-      ])
-    );
+    // On/Off is not a given. A shutter has none, and a media player that only
+    // plays would answer a turn_on with nothing at all.
+    if (kann('on_off')) {
+      panel.appendChild(
+        buttonRow([
+          { label: t('On'), active: an, run: () => call(domain, 'turn_on') },
+          { label: t('Off'), active: !an, run: () => call(domain, 'turn_off') }
+        ])
+      );
+    }
 
-    if (domain === 'light') renderLight(panel, attrs);
-    else if (domain === 'climate') renderClimate(panel, state, attrs);
-    else if (domain === 'cover') renderCover(panel, attrs);
-    else if (domain === 'media_player') renderMedia(panel, attrs);
+    if (domain === 'light') renderLight(panel, attrs, kann);
+    else if (domain === 'climate') renderClimate(panel, state, attrs, kann);
+    else if (domain === 'cover') renderCover(panel, attrs, kann);
+    else if (domain === 'media_player') renderMedia(panel, attrs, kann);
+
+    if (!panel.childNodes.length) {
+      panel.appendChild(element('p', 'hint', t('This device only reports — there is nothing to set')));
+    }
   }
 
-  function renderLight(panel, attrs) {
+  function renderLight(panel, attrs, kann) {
     const controls = global.ColorControls;
-
-    const hell = section(t('Brightness'));
-    const prozent = typeof attrs.brightness === 'number' ? Math.round((attrs.brightness / 255) * 100) : 0;
     let farbe = null;
+    let regler = null;
 
-    const regler = controls.brightnessField({
-      value: prozent,
-      colorOf: () => (farbe ? farbe.get() : Array.isArray(attrs.rgb_color) ? attrs.rgb_color : null),
-      onChange: () => callSoon('light', 'turn_on', { brightness_pct: regler.get() })
-    });
-    hell.appendChild(regler.node);
-    panel.appendChild(hell);
+    // A relay sold as a light has exactly one colour mode: onoff. Giving it a
+    // brightness slider promises something the device will quietly ignore.
+    if (kann('brightness')) {
+      const hell = section(t('Brightness'));
+      const prozent = typeof attrs.brightness === 'number' ? Math.round((attrs.brightness / 255) * 100) : 0;
+      regler = controls.brightnessField({
+        value: prozent,
+        colorOf: () => (farbe ? farbe.get() : Array.isArray(attrs.rgb_color) ? attrs.rgb_color : null),
+        onChange: () => callSoon('light', 'turn_on', { brightness_pct: regler.get() })
+      });
+      hell.appendChild(regler.node);
+      panel.appendChild(hell);
+    }
 
-    if (Array.isArray(attrs.supported_color_modes) && attrs.supported_color_modes.some((m) => /rgb|hs|xy/.test(m))) {
+    if (kann('colour')) {
       const farbteil = section(t('Colour'));
       farbe = controls.colorField({
         onChange: () => {
-          regler.refresh();
+          if (regler) regler.refresh();
           callSoon('light', 'turn_on', { rgb_color: farbe.get() });
         }
       });
@@ -252,7 +285,7 @@
       panel.appendChild(farbteil);
     }
 
-    if (attrs.min_color_temp_kelvin || attrs.color_temp_kelvin) {
+    if (kann('kelvin')) {
       const warm = section(t('Colour temperature'));
       const kelvin = controls.kelvinField({
         value: attrs.color_temp_kelvin || 3000,
@@ -282,7 +315,7 @@
     return wrap;
   }
 
-  function renderClimate(panel, state, attrs) {
+  function renderClimate(panel, state, attrs, kann) {
     const soll = Number(attrs.temperature);
     const ist = Number(attrs.current_temperature);
     const schritt = Number(attrs.target_temp_step) || 0.5;
@@ -296,7 +329,7 @@
     anzeige.appendChild(wert);
     panel.appendChild(anzeige);
 
-    if (isFinite(soll)) {
+    if (isFinite(soll) && kann('temperature')) {
       const min = isFinite(Number(attrs.min_temp)) ? Number(attrs.min_temp) : 7;
       const max = isFinite(Number(attrs.max_temp)) ? Number(attrs.max_temp) : 35;
       const setzen = (wunsch) => {
@@ -320,7 +353,7 @@
       const wahl = section(t('Mode'));
       const reihe = buttonRow(
         modi.map((modus) => ({
-          label: modus,
+          label: modeLabel(modus),
           active: state.state === modus,
           run: () => call('climate', 'set_hvac_mode', { hvac_mode: modus })
         }))
@@ -330,7 +363,7 @@
       panel.appendChild(wahl);
     }
 
-    if ((attrs.fan_modes || []).length > 1) {
+    if (kann('fan_mode')) {
       panel.appendChild(
         selectRow(t('Fan'), attrs.fan_modes, attrs.fan_mode, (wert2) =>
           call('climate', 'set_fan_mode', { fan_mode: wert2 })
@@ -338,7 +371,7 @@
       );
     }
 
-    if ((attrs.swing_modes || []).length > 1) {
+    if (kann('swing_mode')) {
       panel.appendChild(
         selectRow(t('Swing'), attrs.swing_modes, attrs.swing_mode, (wert2) =>
           call('climate', 'set_swing_mode', { swing_mode: wert2 })
@@ -346,7 +379,7 @@
       );
     }
 
-    if ((attrs.preset_modes || []).length > 1) {
+    if (kann('preset_mode')) {
       panel.appendChild(
         selectRow(t('Preset'), attrs.preset_modes, attrs.preset_mode, (wert2) =>
           call('climate', 'set_preset_mode', { preset_mode: wert2 })
@@ -355,9 +388,9 @@
     }
   }
 
-  function renderCover(panel, attrs) {
+  function renderCover(panel, attrs, kann) {
     // The window is the control: drag the shutter, release, and it goes there.
-    if (typeof attrs.current_position === 'number') {
+    if (kann('position') && typeof attrs.current_position === 'number') {
       const teil = section(t('Position'));
       const fenster = global.CoverControl.coverField({
         position: attrs.current_position,
@@ -373,15 +406,13 @@
       coverWidget = fenster;
     }
 
-    panel.appendChild(
-      buttonRow([
-        { label: '▲ ' + t('Open'), run: () => call('cover', 'open_cover') },
-        { label: '■ ' + t('Stop'), run: () => call('cover', 'stop_cover') },
-        { label: '▼ ' + t('Close'), run: () => call('cover', 'close_cover') }
-      ])
-    );
+    const fahrt = [];
+    if (kann('open_close')) fahrt.push({ label: '▲ ' + t('Open'), run: () => call('cover', 'open_cover') });
+    if (kann('stop')) fahrt.push({ label: '■ ' + t('Stop'), run: () => call('cover', 'stop_cover') });
+    if (kann('open_close')) fahrt.push({ label: '▼ ' + t('Close'), run: () => call('cover', 'close_cover') });
+    if (fahrt.length) panel.appendChild(buttonRow(fahrt));
 
-    if (typeof attrs.current_tilt_position === 'number') {
+    if (kann('tilt') && typeof attrs.current_tilt_position === 'number') {
       const neigung = section(t('Tilt'));
       const regler = global.ColorControls.percentField({
         value: attrs.current_tilt_position,
@@ -391,16 +422,14 @@
       panel.appendChild(neigung);
     }
   }
-  function renderMedia(panel, attrs) {
-    panel.appendChild(
-      buttonRow([
-        { label: '\u23ee', run: () => call('media_player', 'media_previous_track') },
-        { label: '\u23ef', run: () => call('media_player', 'media_play_pause') },
-        { label: '\u23ed', run: () => call('media_player', 'media_next_track') }
-      ])
-    );
+  function renderMedia(panel, attrs, kann) {
+    const transport = [];
+    if (kann('track')) transport.push({ label: '\u23ee', run: () => call('media_player', 'media_previous_track') });
+    if (kann('play_pause')) transport.push({ label: '\u23ef', run: () => call('media_player', 'media_play_pause') });
+    if (kann('track')) transport.push({ label: '\u23ed', run: () => call('media_player', 'media_next_track') });
+    if (transport.length) panel.appendChild(buttonRow(transport));
 
-    if (typeof attrs.volume_level === 'number') {
+    if (kann('volume') && typeof attrs.volume_level === 'number') {
       const teil = section(t('Volume'));
       const regler = global.ColorControls.percentField({
         value: Math.round(attrs.volume_level * 100),

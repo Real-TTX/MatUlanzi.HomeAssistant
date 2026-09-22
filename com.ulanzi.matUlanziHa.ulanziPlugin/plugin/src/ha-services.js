@@ -39,6 +39,104 @@
   }
 
   /**
+   * Which capability a service quietly requires.
+   *
+   * Home Assistant states this itself, but as strings like
+   * "cover.CoverEntityFeature.SET_POSITION" that only mean something next to
+   * the enum they came from. The same question is already answered properly
+   * one module over, so it is asked there.
+   */
+  const NEEDS = {
+    'cover.open_cover': 'open_close',
+    'cover.close_cover': 'open_close',
+    'cover.toggle': 'open_close',
+    'cover.stop_cover': 'stop',
+    'cover.set_cover_position': 'position',
+    'cover.set_cover_tilt_position': 'tilt',
+    'cover.open_cover_tilt': 'tilt_move',
+    'cover.close_cover_tilt': 'tilt_move',
+    'cover.stop_cover_tilt': 'tilt_move',
+    'cover.toggle_cover_tilt': 'tilt_move',
+    'climate.set_temperature': 'temperature',
+    'climate.set_humidity': 'humidity',
+    'climate.set_fan_mode': 'fan_mode',
+    'climate.set_swing_mode': 'swing_mode',
+    'climate.set_preset_mode': 'preset_mode',
+    'climate.turn_on': 'on_off',
+    'climate.turn_off': 'on_off',
+    'media_player.volume_set': 'volume',
+    'media_player.volume_up': 'volume',
+    'media_player.volume_down': 'volume',
+    'media_player.volume_mute': 'mute',
+    'media_player.media_play': 'play_pause',
+    'media_player.media_pause': 'play_pause',
+    'media_player.media_play_pause': 'play_pause',
+    'media_player.media_next_track': 'track',
+    'media_player.media_previous_track': 'track',
+    'media_player.select_source': 'source',
+    'media_player.turn_on': 'on_off',
+    'media_player.turn_off': 'on_off',
+    'fan.set_percentage': 'speed',
+    'fan.increase_speed': 'speed',
+    'fan.decrease_speed': 'speed',
+    'fan.oscillate': 'oscillate',
+    'fan.set_preset_mode': 'preset_mode'
+  };
+
+  /**
+   * "light.ColorMode.COLOR_TEMP" and "color_temp" are the same thing said
+   * twice: once in a service description, once in an entity's attributes.
+   */
+  function enumTail(value) {
+    const text = String(value === undefined || value === null ? '' : value);
+    const punkt = text.lastIndexOf('.');
+    return (punkt === -1 ? text : text.slice(punkt + 1)).toLowerCase();
+  }
+
+  /**
+   * A service the entity can carry out. Without a state we say yes: not
+   * knowing is not the same as knowing it cannot.
+   */
+  function serviceFits(domain, service, entityId, state) {
+    if (!state || !global.HaCapabilities) return true;
+    if (domain !== domainOf(entityId)) return true;
+    const braucht = NEEDS[domain + '.' + service];
+    if (!braucht) return true;
+    return global.HaCapabilities.can(entityId, state, braucht);
+  }
+
+  /**
+   * A field the entity has any use for, going by Home Assistant's own filter —
+   * this is what keeps a brightness slider away from a relay sold as a lamp.
+   */
+  function fieldFits(spec, state, domain) {
+    const filter = spec && spec.filter;
+    if (!filter || !state) return true;
+
+    // "This field needs the TRANSITION feature" - a sentence only the bitmask
+    // can answer, so it is passed on to the module that keeps the bits.
+    const gefordert = filter.supported_features;
+    if (Array.isArray(gefordert) && global.HaCapabilities) {
+      const passt = gefordert.some((name) => global.HaCapabilities.hasNamedFeature(domain, state, name));
+      if (!passt) return false;
+    }
+
+    if (!filter.attribute) return true;
+    const attrs = state.attributes || {};
+
+    for (const name of Object.keys(filter.attribute)) {
+      const wert = attrs[name];
+      // The entity never mentioned the attribute; hiding the field would be a
+      // guess against an integration that simply says little.
+      if (wert === undefined || wert === null) continue;
+      const erlaubt = (filter.attribute[name] || []).map(enumTail);
+      const haben = (Array.isArray(wert) ? wert : [wert]).map(enumTail);
+      if (!haben.some((eigen) => erlaubt.indexOf(eigen) !== -1)) return false;
+    }
+    return true;
+  }
+
+  /**
    * One selector turned into something the designer can render.
    * @returns {{key,label,type,min,max,step,unit,options,required}|null}
    */
@@ -117,7 +215,7 @@
    * @param {string} entityId
    * @returns {Array<{domain,service,label,fields,description}>}
    */
-  function servicesFor(catalogue, entityId) {
+  function servicesFor(catalogue, entityId, state) {
     const alle = catalogue || {};
     const eigen = domainOf(entityId);
     const domains = [eigen].concat(ALWAYS.filter((name) => name !== eigen));
@@ -128,13 +226,14 @@
       if (!dienste) continue;
       for (const service of Object.keys(dienste).sort()) {
         if (domain === 'homeassistant' && SAFE_HOMEASSISTANT.indexOf(service) === -1) continue;
-        liste.push(describe(dienste[service], domain, service));
+        if (!serviceFits(domain, service, entityId, state)) continue;
+        liste.push(describe(dienste[service], domain, service, state));
       }
     }
     return liste;
   }
 
-  function describe(definition, domain, service) {
+  function describe(definition, domain, service, state) {
     const info = definition || {};
     const felder = info.fields || {};
     const fields = [];
@@ -146,6 +245,7 @@
         hatUnrenderbares = true;
         continue;
       }
+      if (!fieldFits(felder[key], state, domain)) continue;
       const field = normalizeField(key, felder[key]);
       if (field) fields.push(field);
       else hatUnrenderbares = true;
@@ -162,10 +262,10 @@
     };
   }
 
-  function find(catalogue, domain, service) {
+  function find(catalogue, domain, service, state) {
     const dienste = (catalogue || {})[domain];
     if (!dienste || !dienste[service]) return null;
-    return describe(dienste[service], domain, service);
+    return describe(dienste[service], domain, service, state);
   }
 
   /**
@@ -257,6 +357,9 @@
 
   global.HaServices = {
     normalizeField: normalizeField,
+    serviceFits: serviceFits,
+    fieldFits: fieldFits,
+    enumTail: enumTail,
     servicesFor: servicesFor,
     describe: describe,
     find: find,
