@@ -74,6 +74,36 @@
     this.stale = null;
   };
 
+  /** Asks the open window to close itself. */
+  ControlWindow.prototype.close = function () {
+    if (!this.isAlive() || !this.context) return false;
+    this.log('control window closes');
+    this.ud.sendToPropertyInspector({ response: 'control:close' }, this.context);
+    this.lastSeen = 0;
+    this.context = null;
+    this.showing = '';
+    this.stale = null;
+    return true;
+  };
+
+  /**
+   * The same hold that opened the window closes it again.
+   *
+   * Only for the device it is already showing: holding another key while the
+   * window is up means "show me that one instead", not "go away".
+   *
+   * @param {object} spec {entityId, connectionId, name, x, y}
+   * @returns {'closed'|'switched'|'opened'}
+   */
+  ControlWindow.prototype.toggle = function (spec) {
+    const wunsch = spec || {};
+    if (this.isAlive() && this.context && this.showing && this.showing === wunsch.entityId) {
+      this.close();
+      return 'closed';
+    }
+    return this.open(wunsch);
+  };
+
   /**
    * @param {object} spec {entityId, connectionId, name, x, y}
    * @returns {'switched'|'opened'} whether an open window was re-aimed

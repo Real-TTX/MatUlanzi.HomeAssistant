@@ -190,23 +190,70 @@
   }, TARGET_POLL_MS);
 
   /**
-   * Which gesture a press was, decided on release.
+   * Which gesture a press was.
    *
-   * The host sends both `keyup` and `run`, and they are not interchangeable: a
-   * long press has to be measured against the moment the key comes back up, so
-   * that is what drives the dispatch. `run` stays as a fallback for the
-   * simulator and for multi-actions, where no key event arrives at all — but it
-   * is ignored when the release already handled this press, which is what made
-   * a long press fire the short action as well.
+   * A long press is not decided on release but while the key is still down:
+   * the moment the threshold passes, it fires. Waiting for the release made
+   * holding a key feel dead — nothing happened until you let go, and by then
+   * you had already held it far longer than you meant to.
+   *
+   * The release then only has to clear up: a press the hold already dealt with
+   * is over. `run` stays as a fallback for the simulator and for multi-actions,
+   * where no key event arrives at all.
    */
   const PRESS_FALLBACK_MS = 1200;
 
-  /** @type {Map<string, {at:number, handled:boolean}>} */
+  /** @type {Map<string, {at:number, handled:boolean, hold:*, forget:*}>} */
   const presses = new Map();
 
-  function beginPress(context) {
+  function beginPress(message) {
+    const context = message && message.context;
     if (!context) return;
-    presses.set(context, { at: Date.now(), handled: false });
+    forgetPress(context);
+
+    const action = ensureAction(message);
+    const press = { at: Date.now(), handled: false, hold: null, forget: null };
+    presses.set(context, press);
+
+    press.hold = global.setTimeout(() => {
+      press.hold = null;
+      if (press.handled) return;
+      markHandled(context, press);
+      note('hold', context, Date.now() - press.at);
+      action.handleHold();
+    }, action.longPressMs());
+  }
+
+  /**
+   * This press is done — but the record stays a moment longer.
+   *
+   * The host sends `keyup` and `run` for the very same press, in that order.
+   * Dropping the record at `keyup` leaves `run` looking at a clean slate,
+   * which it reads as a fresh short press: a hold would open a window and then
+   * toggle the light on the way out.
+   */
+  function markHandled(context, press) {
+    press.handled = true;
+    if (press.hold) {
+      global.clearTimeout(press.hold);
+      press.hold = null;
+    }
+    press.forget = global.setTimeout(() => presses.delete(context), PRESS_FALLBACK_MS);
+  }
+
+  /** A press that is over, pending timers and all. */
+  function forgetPress(context) {
+    const press = presses.get(context);
+    if (!press) return;
+    if (press.hold) global.clearTimeout(press.hold);
+    if (press.forget) global.clearTimeout(press.forget);
+    presses.delete(context);
+  }
+
+  function note(quelle, context, dauer) {
+    log('[key] ' + quelle + ' after ' + dauer + ' ms on ' + context);
+    pressLog.push({ at: new Date().toISOString().slice(11, 23), source: quelle, ms: dauer, context: context });
+    if (pressLog.length > 30) pressLog.shift();
   }
 
   function endPress(message, quelle) {
@@ -215,25 +262,18 @@
 
     const press = presses.get(context);
 
-    if (quelle === 'run') {
-      // The release already dealt with it; `run` arriving afterwards is the
-      // host being thorough, not a second press.
-      if (press && press.handled) {
-        presses.delete(context);
-        return;
-      }
-      // A real key was pressed and we are still waiting for its release —
-      // let the release decide, unless it never comes.
-      if (press && Date.now() - press.at < PRESS_FALLBACK_MS) return;
+    // Already dealt with. What arrives now is the tail of the same gesture,
+    // not a second one.
+    if (press && press.handled) return;
+
+    if (quelle === 'run' && press && Date.now() - press.at < PRESS_FALLBACK_MS) {
+      // A real key is down and its release is still to come — let that decide.
+      return;
     }
 
     const dauer = press ? Date.now() - press.at : 0;
-    if (press) press.handled = true;
-    if (quelle !== 'keyup') presses.delete(context);
-
-    log('[key] ' + quelle + ' after ' + dauer + ' ms on ' + context);
-    pressLog.push({ at: new Date().toISOString().slice(11, 23), source: quelle, ms: dauer, context: context });
-    if (pressLog.length > 30) pressLog.shift();
+    if (press) markHandled(context, press);
+    note(quelle, context, dauer);
 
     const action = ensureAction(message);
     action.handlePress(dauer);
@@ -365,7 +405,7 @@
     if (action) action.setActive(message.active);
   });
 
-  $UD.onKeyDown((message) => beginPress(message && message.context));
+  $UD.onKeyDown((message) => beginPress(message));
   $UD.onKeyUp((message) => endPress(message, 'keyup'));
   $UD.onRun((message) => endPress(message, 'run'));
 
@@ -377,7 +417,7 @@
         action.destroy();
         actions.delete(item.context);
       }
-      presses.delete(item.context);
+      forgetPress(item.context);
     }
   });
 

@@ -140,6 +140,15 @@
 
     // --- input --------------------------------------------------------------
 
+    /**
+     * The key has been held long enough — run the long action now, with the
+     * key still down. Nothing is left for the release to do.
+     */
+    async handleHold() {
+      this._cancelPendingClick();
+      await this.handleLongPress(this.definition());
+    }
+
     async handlePress(pressDurationMs) {
       const def = this.definition();
 
@@ -416,7 +425,9 @@
       }
       const entry = this.targetConnection(target, def);
       const record = entry ? entry.registry.get(target.entityId) : null;
-      this.control.open({
+      // Toggle, not open: the same hold that brought the window up puts it
+      // away again, so a key never becomes a one-way door.
+      this.control.toggle({
         entityId: target.entityId,
         connectionId: entry ? entry.id : def.connection,
         name: def.label || def.name || target.name || (record && record.name) || '',
@@ -551,12 +562,21 @@
       return true;
     }
 
-    /** What a long press does is configurable per button. */
+    /**
+     * What a long press does is configurable per button. Left alone it opens
+     * the control window — a key can only ever toggle, so everything a device
+     * can do beyond that has to be a hold away, not buried in the designer.
+     */
     async handleLongPress(def) {
       if (await this.runActions(def, 'long')) return;
 
-      const what = (def && def.longPress) || 'identify';
+      const what = (def && def.longPress) || 'control';
       if (what === 'none') return;
+      if (what === 'control') {
+        if (this.effectiveTarget(def)) this.openControl(def);
+        else this.identify(def);
+        return;
+      }
       if (what === 'target') {
         this.rememberTarget(def);
         return;
