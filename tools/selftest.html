@@ -7,6 +7,7 @@
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-client.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-registry.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-domains.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-capabilities.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/mdi-icons.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/property-inspector/common/color-controls.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/property-inspector/common/cover-control.js"></script>
@@ -16,6 +17,7 @@
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/switch-plan.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/target-context.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/ha-links.js"></script>
+    <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/control-window.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/key-style.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/library.js"></script>
     <script src="../com.ulanzi.matUlanziHa.ulanziPlugin/plugin/src/key-renderer.js"></script>
@@ -169,6 +171,136 @@
         check('Szene startet', D.pressService('scene.abend', null).service === 'turn_on');
         check('Fallback ist homeassistant.toggle', D.pressService('input_boolean.x', null).domain === 'homeassistant');
         check('Helligkeitsbalken 0..1', Math.abs(D.progressOf('light.decke_wz', fakeClient.getState('light.decke_wz')) - 180 / 255) < 0.001);
+
+        section('Steuerfenster: auf und wieder zu');
+        const gesendet = [];
+        const fensterUd = {
+          uuid: 'uuid.test',
+          address: '127.0.0.1',
+          port: 1,
+          language: 'de_DE',
+          openView: function () { gesendet.push({ was: 'openView' }); },
+          sendToPropertyInspector: function (payload, ctx) { gesendet.push({ was: payload.response, an: ctx }); }
+        };
+        let uhr = 1000;
+        const fenster = new ControlWindow({
+          ud: fensterUd,
+          location: { href: 'file:///plugins/ha/plugin/service.html' },
+          now: () => uhr,
+          senderUuid: 'uuid.control'
+        });
+
+        check('geschlossen bleibt geschlossen', fenster.close() === false);
+        check('erstes Halten öffnet', fenster.toggle({ entityId: 'climate.wz' }) === 'opened');
+        check('openView wurde gerufen', gesendet.length === 1 && gesendet[0].was === 'openView');
+
+        // The window reports in, as the real page does on every heartbeat.
+        fenster.noteAlive('ctx-1', 'climate.wz');
+        check('zweites Halten schließt wieder', fenster.toggle({ entityId: 'climate.wz' }) === 'closed');
+        check('die Seite bekommt den Schließbefehl', gesendet[gesendet.length - 1].was === 'control:close');
+        check('danach ist nichts mehr offen', fenster.isAlive() === false && fenster.showing === '');
+
+        gesendet.length = 0;
+        fenster.toggle({ entityId: 'climate.wz' });
+        fenster.noteAlive('ctx-2', 'climate.wz');
+        check('ein anderes Gerät schließt nicht, sondern wechselt', fenster.toggle({ entityId: 'cover.wz' }) === 'switched');
+        check('das Fenster zeigt nun das andere Gerät', fenster.showing === 'cover.wz');
+        check('ein Halten auf dem neuen Gerät schließt', fenster.toggle({ entityId: 'cover.wz' }) === 'closed');
+
+        // A window nobody has heard from in a while is gone, whatever it said last.
+        fenster.toggle({ entityId: 'light.x' });
+        fenster.noteAlive('ctx-3', 'light.x');
+        uhr += 60000;
+        check('ein verstummtes Fenster gilt als zu', fenster.toggle({ entityId: 'light.x' }) === 'opened');
+
+        section('Was ein Gerät wirklich kann');
+        const C = HaCapabilities;
+        // A SONOFF relay flashed as a light: one colour mode, and it is onoff.
+        const sonoff = { state: 'on', attributes: { supported_color_modes: ['onoff'], supported_features: 0 } };
+        const dimmbar = { state: 'on', attributes: { supported_color_modes: ['brightness'], supported_features: 0 } };
+        const farbig = { state: 'on', attributes: { supported_color_modes: ['color_temp', 'hs'], supported_features: 0 } };
+        check('Relais-Licht kann an/aus', C.can('light.decke', sonoff, 'on_off') === true);
+        check('Relais-Licht hat keine Helligkeit', C.can('light.decke', sonoff, 'brightness') === false);
+        check('Relais-Licht hat keine Farbe', C.can('light.decke', sonoff, 'colour') === false);
+        check('Dimmer hat Helligkeit, aber keine Farbe', C.can('light.x', dimmbar, 'brightness') === true && C.can('light.x', dimmbar, 'colour') === false);
+        check('Farblampe hat Farbe und Farbtemperatur', C.can('light.x', farbig, 'colour') === true && C.can('light.x', farbig, 'kelvin') === true);
+        check('ohne Angabe wird nichts versteckt', C.can('light.x', { state: 'on', attributes: {} }, 'brightness') === true);
+        check('ohne Bitmaske gilt jede Fähigkeit als vorhanden', C.hasNamedFeature('light', { state: 'on', attributes: {} }, 'light.LightEntityFeature.TRANSITION') === true);
+        check('Bitmaske 0 heißt: kann es nicht', C.hasNamedFeature('light', sonoff, 'light.LightEntityFeature.TRANSITION') === false);
+        // Older Home Assistant installations send the bare number instead.
+        check('die nackte Zahl meint dasselbe Bit', C.hasNamedFeature('light', sonoff, 32) === false);
+        check('gesetztes Bit als Zahl erkannt', C.hasNamedFeature('light', { state: 'on', attributes: { supported_features: 32 } }, 32) === true);
+
+        const rollo = { state: 'open', attributes: { supported_features: 15, current_position: 40 } };
+        const einfachesRollo = { state: 'open', attributes: { supported_features: 3 } };
+        check('Rollo hat kein AN/AUS', C.can('cover.wz', rollo, 'on_off') === false);
+        check('Rollo fährt auf und zu', C.can('cover.wz', rollo, 'open_close') === true);
+        check('Rollo mit Positionsbit kann Position', C.can('cover.wz', rollo, 'position') === true);
+        check('Rollo ohne Positionsbit kann keine Position', C.can('cover.wz', einfachesRollo, 'position') === false);
+        check('Rollo ohne Stopbit hat kein Stop', C.can('cover.wz', einfachesRollo, 'stop') === false);
+
+        const klima = { state: 'heat', attributes: { supported_features: 1 + 8 + 16, hvac_modes: ['off', 'heat'], fan_modes: ['low', 'high'], preset_modes: ['eco'] } };
+        check('Klima kann Solltemperatur', C.can('climate.wz', klima, 'temperature') === true);
+        check('Klima kann Lüfterstufen', C.can('climate.wz', klima, 'fan_mode') === true);
+        check('Klima ohne Swing-Bit zeigt kein Swing', C.can('climate.wz', klima, 'swing_mode') === false);
+        check('ein einziges Preset ist keine Auswahl', C.can('climate.wz', klima, 'preset_mode') === false);
+        check('Klima ohne Ein/Aus-Bit hat kein AN/AUS', C.can('climate.wz', klima, 'on_off') === false);
+
+        const box = { state: 'playing', attributes: { supported_features: 4 + 16384, volume_level: 0.3 } };
+        check('Box kann Lautstärke', C.can('media_player.box', box, 'volume') === true);
+        check('Box ohne Titel-Bits zeigt keine Titelsprünge', C.can('media_player.box', box, 'track') === false);
+        check('unbekannte Fähigkeit ist nein', C.can('light.x', farbig, 'quatsch') === false);
+
+        section('Dienste, die zur Entität passen');
+        const katalog = {
+          light: {
+            turn_on: {
+              name: 'Einschalten',
+              fields: {
+                brightness_pct: { selector: { number: { min: 0, max: 100, unit_of_measurement: '%' } }, filter: { attribute: { supported_color_modes: ['light.ColorMode.BRIGHTNESS', 'light.ColorMode.HS'] } } },
+                rgb_color: { selector: { color_rgb: null }, filter: { attribute: { supported_color_modes: ['light.ColorMode.HS', 'light.ColorMode.RGB'] } } },
+                transition: { selector: { number: { min: 0, max: 30 } }, filter: { supported_features: ['light.LightEntityFeature.TRANSITION'] } },
+                effect: { selector: { text: null }, filter: { supported_features: [4] } }
+              }
+            },
+            turn_off: { name: 'Ausschalten', fields: {} }
+          },
+          cover: {
+            open_cover: { fields: {} },
+            close_cover: { fields: {} },
+            stop_cover: { fields: {} },
+            stop_cover_tilt: { fields: {} },
+            set_cover_tilt_position: { fields: {} },
+            set_cover_position: { fields: { position: { selector: { number: { min: 0, max: 100, unit_of_measurement: '%' } } } } }
+          }
+        };
+        const felderVon = (entity, state) => {
+          const dienst = HaServices.find(katalog, 'light', 'turn_on', state);
+          return dienst.fields.map((f) => f.key).join(',');
+        };
+        check('Relais-Licht ohne Zusatzbits bekommt gar kein Feld', felderVon('light.decke', sonoff) === '', felderVon('light.decke', sonoff));
+        check('Dimmer bekommt die Helligkeit', felderVon('light.x', dimmbar) === 'brightness_pct', felderVon('light.x', dimmbar));
+        check('Farblampe bekommt Helligkeit und Farbe', felderVon('light.x', farbig) === 'brightness_pct,rgb_color', felderVon('light.x', farbig));
+        check('ohne Zustand bleibt alles stehen', felderVon('light.x', null) === 'brightness_pct,rgb_color,transition,effect');
+
+        const mitUeberblendung = { state: 'on', attributes: { supported_color_modes: ['hs'], supported_features: 32 } };
+        check('Lampe mit Überblendungsbit bekommt das Feld', felderVon('light.x', mitUeberblendung) === 'brightness_pct,rgb_color,transition', felderVon('light.x', mitUeberblendung));
+        check('unbekannte Fähigkeitsnamen verstecken nichts', HaCapabilities.hasNamedFeature('light', mitUeberblendung, 'light.LightEntityFeature.WASAUCHIMMER') === true);
+
+        const dienstIds = (entity, state) =>
+          HaServices.servicesFor(katalog, entity, state)
+            .filter((d) => d.domain === 'cover')
+            .map((d) => d.service)
+            .join(',');
+        check('einfaches Rollo verliert Position und Stop', dienstIds('cover.wz', einfachesRollo) === 'close_cover,open_cover', dienstIds('cover.wz', einfachesRollo));
+        check('ein Rollo ohne Lamellen zeigt keine Lamellendienste', dienstIds('cover.wz', rollo) === 'close_cover,open_cover,set_cover_position,stop_cover', dienstIds('cover.wz', rollo));
+
+        // Bits 16 and 64: slats it can tip and stop, but not aim at an angle.
+        const lamellen = { state: 'open', attributes: { supported_features: 15 + 16 + 64 } };
+        check('kippbare Lamellen bringen ihre Dienste mit', dienstIds('cover.wz', lamellen) === 'close_cover,open_cover,set_cover_position,stop_cover,stop_cover_tilt', dienstIds('cover.wz', lamellen));
+        check('ohne Winkelbit kein Winkelregler', HaCapabilities.can('cover.wz', lamellen, 'tilt') === false);
+        check('kippen kann es trotzdem', HaCapabilities.can('cover.wz', lamellen, 'tilt_move') === true);
+        check('Enum-Ende wird gelesen', HaServices.enumTail('light.ColorMode.COLOR_TEMP') === 'color_temp');
 
         section('Bibliothek: Verbindungen & Buttons');
         const emptyLib = new Library({});

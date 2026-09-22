@@ -36,6 +36,7 @@
    *   entitiesOf  () => entity ids of the button
    *   labelOf     (entityId) => readable name
    *   catalogue   () => Promise of the get_services answer
+   *   stateOf     (entityId) => the entity's current state, or null
    *   renderFields(host, service, data, onChange)  the shared field renderer
    *   collect(host)        reads those fields back
    *   merge(json, service, values)  merges them into the JSON
@@ -191,7 +192,7 @@
     const fuer = action.entity || deps.entitiesOf()[0] || '';
     deps.catalogue().then((katalog) => {
       if (!katalog) return;
-      const angebote = global.HaServices.servicesFor(katalog, fuer);
+      const angebote = global.HaServices.servicesFor(katalog, fuer, (deps.stateOf ? deps.stateOf(fuer) : null));
       service.innerHTML = '';
       service.appendChild(option('', '— ' + t('Pick an action') + ' —'));
       for (const eintrag of angebote) {
@@ -227,7 +228,8 @@
     }
     deps.catalogue().then((katalog) => {
       if (!katalog) return;
-      const dienst = global.HaServices.find(katalog, action.domain, action.service);
+      const fuer = action.entity || deps.entitiesOf()[0] || '';
+      const dienst = global.HaServices.find(katalog, action.domain, action.service, (deps.stateOf ? deps.stateOf(fuer) : null));
       const parsed = global.SwitchPlan.parseData(action.data);
       deps.renderFields(host, dienst, parsed.error ? {} : parsed.data, () => {
         action.data = deps.merge(action.data, dienst, deps.collect(host));

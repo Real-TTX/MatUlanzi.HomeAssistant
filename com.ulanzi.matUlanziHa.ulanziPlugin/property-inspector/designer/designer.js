@@ -116,6 +116,8 @@
   let previewAction = null;
   let pendingIconField = '';
   let iconBrowserField = '';
+  /** Set when the browser was opened for a rule row, which has no form field. */
+  let iconBrowserDone = null;
   let initialised = false;
   let echoBlockedUntil = 0;
   let librarySeen = false;
@@ -1224,7 +1226,7 @@
         data: ''
       },
       { id: 'act-' + stempel + 'b', trigger: 'double', kind: 'none', entity: '' },
-      { id: 'act-' + stempel + 'c', trigger: 'long', kind: 'identify', entity: '' }
+      { id: 'act-' + stempel + 'c', trigger: 'long', kind: 'window', entity: '' }
     ];
 
     library.updateButton(entry.id, { actions: domain ? zeilen : [] });
@@ -1300,9 +1302,17 @@
     renderAutoState(entry);
   }
 
+  /**
+   * Set when an action row was drawn before its entity's state had arrived.
+   * Without this the first look at a button shows every field a service knows,
+   * including the ones that entity cannot do.
+   */
+  let aktionenWartenAufZustand = false;
+
   function renderActionList(entry) {
     const host = el('action-list');
     if (!host) return;
+    aktionenWartenAufZustand = false;
 
     if (!aktionsListe) {
       aktionsListe = new global.ActionList({
@@ -1320,6 +1330,17 @@
           const aktuell = library.button(selection.id);
           const verbindung = pool.get(aktuell ? aktuell.connection : '') || pool.entries()[0];
           return ladeDienste(verbindung);
+        },
+        stateOf: (entityId) => {
+          if (!entityId) return null;
+          const aktuell = library.button(selection.id);
+          const verbindung = pool.get(aktuell ? aktuell.connection : '') || pool.entries()[0];
+          const zustand = verbindung ? verbindung.client.getState(entityId) : null;
+          // Which fields a service offers depends on the entity, and right
+          // after opening we do not know the entity yet. Note that, so the
+          // list can be drawn again once Home Assistant has answered.
+          if (!zustand) aktionenWartenAufZustand = true;
+          return zustand;
         },
         renderFields: renderPresetFields,
         collect: collectPresetValues,
@@ -1481,6 +1502,8 @@
   }
 
   function openIconBrowser(field) {
+    // A rule's pick that was abandoned must not land in a form field now.
+    iconBrowserDone = null;
     iconBrowserField = field;
     el('icon-browser').classList.remove('hidden');
     el('icon-search').value = '';
@@ -1490,6 +1513,7 @@
 
   function closeIconBrowser() {
     iconBrowserField = '';
+    iconBrowserDone = null;
     el('icon-browser').classList.add('hidden');
   }
 
@@ -1626,6 +1650,9 @@
         mountPicker(entry);
         renderChips(entry);
         renderPreview();
+        // Only when the list was drawn blind: rebuilding it under the user's
+        // hands while they are editing would be worse than a stale field.
+        if (aktionenWartenAufZustand) renderActionList(entry);
       }
     }
     if (selection.kind === 'connection') {
