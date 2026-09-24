@@ -136,7 +136,11 @@
     }
     $UD.sendToPlugin({
       request: changed || announce ? 'control:hello' : 'control:ping',
-      entity: entityId
+      entity: entityId,
+      // The host frames the window, so it comes out larger than it was asked
+      // for. Only this side can see by how much, and the service needs the
+      // number to put the next window in the middle of the screen.
+      outer: [global.outerWidth, global.outerHeight]
     });
   }
 

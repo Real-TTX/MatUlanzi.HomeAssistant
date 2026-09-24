@@ -570,7 +570,12 @@
     async handleLongPress(def) {
       if (await this.runActions(def, 'long')) return;
 
-      const what = (def && def.longPress) || 'control';
+      // 'identify' was the old default: it sits in every button ever saved,
+      // chosen or not, and the designer stopped offering the field long ago.
+      // Reading it as "nothing chosen" is what lets a button that already
+      // exists gain the control window.
+      const gespeichert = (def && def.longPress) || '';
+      const what = !gespeichert || gespeichert === 'identify' ? 'control' : gespeichert;
       if (what === 'none') return;
       if (what === 'control') {
         if (this.effectiveTarget(def)) this.openControl(def);

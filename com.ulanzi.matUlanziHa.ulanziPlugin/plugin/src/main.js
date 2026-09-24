@@ -459,7 +459,7 @@
       return;
     }
     if (payload.request === 'control:hello' || payload.request === 'control:ping') {
-      control.noteAlive(message.context, payload.entity);
+      control.noteAlive(message.context, payload.entity, payload.outer);
       return;
     }
     if (payload.request === 'control:bye') {

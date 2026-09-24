@@ -21,9 +21,16 @@
   const WIDTH = 420;
   const HEIGHT = 520;
 
-  /** Clear of the screen centre, where Studio itself sits. */
-  const DEFAULT_X = 80;
-  const DEFAULT_Y = 80;
+  /** Only used when the screen will not say how big it is. */
+  const FALLBACK_X = 80;
+  const FALLBACK_Y = 80;
+
+  /**
+   * A starting guess at the title bar, so even the first window of a session
+   * lands in the middle. Measured on Windows (31 px); the first window that
+   * opens replaces it with the truth, whatever host this turns out to be.
+   */
+  const FRAME_GUESS = { x: 0, y: 31 };
 
   function ControlWindow(options) {
     const opts = options || {};
@@ -34,6 +41,9 @@
     this.senderUuid = opts.senderUuid || '';
     this.width = opts.width || WIDTH;
     this.height = opts.height || HEIGHT;
+    this.screen = opts.screen || global.screen;
+    /** How much bigger the host makes the window than we ask for. */
+    this.frame = { x: FRAME_GUESS.x, y: FRAME_GUESS.y };
 
     this.lastSeen = 0;
     this.context = null;
@@ -41,6 +51,27 @@
     /** What the open window is showing, so a second press can switch it. */
     this.showing = '';
   }
+
+  /**
+   * The middle of the screen.
+   *
+   * Left to itself the host centres the window too - but only because the SDK
+   * drops a zero coordinate, so "centred" is whatever the host happens to mean
+   * that day. Working area rather than raw screen size, so the window does not
+   * sit half behind the task bar.
+   */
+  ControlWindow.prototype.centre = function () {
+    const schirm = this.screen || {};
+    const breite = Number(schirm.availWidth || schirm.width) || 0;
+    const hoehe = Number(schirm.availHeight || schirm.height) || 0;
+    if (!breite || !hoehe) return { x: FALLBACK_X, y: FALLBACK_Y };
+
+    // Never zero: the SDK reads that as "no preference" and centres it itself.
+    return {
+      x: Math.max(1, Math.round((breite - this.width - this.frame.x) / 2)),
+      y: Math.max(1, Math.round((hoehe - this.height - this.frame.y) / 2))
+    };
+  };
 
   ControlWindow.prototype.viewPath = function () {
     const base = String(this.location.href)
@@ -50,10 +81,29 @@
     return base.replace(/^file:\/\//, '') + VIEW_PATH;
   };
 
-  ControlWindow.prototype.noteAlive = function (context, entityId) {
+  ControlWindow.prototype.noteAlive = function (context, entityId, outer) {
     this.lastSeen = this.now();
     if (context) this.context = context;
     if (entityId) this.showing = entityId;
+    if (outer) this.noteFrame(outer);
+  };
+
+  /**
+   * What the window really measured, so the next one can be aimed properly.
+   *
+   * The host draws a title bar around the size it was given and then insists on
+   * placing the window itself - a page that moves itself is quietly put back.
+   * So the only way to land in the middle is to ask for the right spot, and
+   * that needs the frame's size, which nobody says out loud.
+   */
+  ControlWindow.prototype.noteFrame = function (outer) {
+    const breite = Number(outer[0]);
+    const hoehe = Number(outer[1]);
+    if (!isFinite(breite) || !isFinite(hoehe)) return;
+    this.frame = {
+      x: Math.max(0, Math.round(breite - this.width)),
+      y: Math.max(0, Math.round(hoehe - this.height))
+    };
   };
 
   ControlWindow.prototype.noteClosed = function () {
@@ -137,18 +187,14 @@
       nonce: String(this.now())
     };
 
-    this.log('openView ' + this.viewPath() + ' for ' + wunsch.entityId);
-    // x and y are honoured precisely (measured); leaving them out centres it.
-    // Centred would put it on top of Studio, where it is easy to miss. Unless
-    // the button says otherwise, it opens clear of the middle.
-    this.ud.openView(
-      this.viewPath(),
-      this.width,
-      this.height,
-      wunsch.x === undefined ? DEFAULT_X : wunsch.x,
-      wunsch.y === undefined ? DEFAULT_Y : wunsch.y,
-      params
-    );
+    // x and y are honoured precisely (measured), so the middle is worked out
+    // here rather than left to the host. A button may still name its own spot.
+    const mitte = this.centre();
+    const x = wunsch.x === undefined ? mitte.x : wunsch.x;
+    const y = wunsch.y === undefined ? mitte.y : wunsch.y;
+
+    this.log('openView ' + this.viewPath() + ' for ' + wunsch.entityId + ' at ' + x + ',' + y);
+    this.ud.openView(this.viewPath(), this.width, this.height, x, y, params);
     this.showing = wunsch.entityId || '';
     return 'opened';
   };

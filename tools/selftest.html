@@ -179,7 +179,7 @@
           address: '127.0.0.1',
           port: 1,
           language: 'de_DE',
-          openView: function () { gesendet.push({ was: 'openView' }); },
+          openView: function (url, w, h, x, y, param) { gesendet.push({ was: 'openView', w: w, h: h, x: x, y: y, param: param }); },
           sendToPropertyInspector: function (payload, ctx) { gesendet.push({ was: payload.response, an: ctx }); }
         };
         let uhr = 1000;
@@ -187,15 +187,47 @@
           ud: fensterUd,
           location: { href: 'file:///plugins/ha/plugin/service.html' },
           now: () => uhr,
-          senderUuid: 'uuid.control'
+          senderUuid: 'uuid.control',
+          width: 420,
+          height: 520,
+          screen: { availWidth: 1920, availHeight: 1040 }
         });
+
+        // 1920x1040, Fenster 420x520, Rahmenschätzung 31 px hoch.
+        check('das Fenster landet waagerecht in der Mitte', fenster.centre().x === 750, JSON.stringify(fenster.centre()));
+        check('und senkrecht, um den geschätzten Rahmen versetzt', fenster.centre().y === 245, JSON.stringify(fenster.centre()));
+
+        // A screen that says nothing must not push the window to 0,0.
+        const blind = new ControlWindow({ ud: fensterUd, location: { href: 'file:///x/plugin/s.html' }, screen: {} });
+        check('ohne Bildschirmmaße bleibt ein brauchbarer Platz', blind.centre().x === 80 && blind.centre().y === 80);
+
+        // Zero would be dropped by the SDK, which then centres by its own rules.
+        const riesig = new ControlWindow({ ud: fensterUd, location: { href: 'file:///x/plugin/s.html' }, width: 4000, height: 4000, screen: { availWidth: 800, availHeight: 600 } });
+        check('ein zu großes Fenster rutscht nicht auf Null', riesig.centre().x === 1 && riesig.centre().y === 1);
 
         check('geschlossen bleibt geschlossen', fenster.close() === false);
         check('erstes Halten öffnet', fenster.toggle({ entityId: 'climate.wz' }) === 'opened');
         check('openView wurde gerufen', gesendet.length === 1 && gesendet[0].was === 'openView');
+        check('openView bekam die Mitte mitgeteilt', gesendet[0].x === 750 && gesendet[0].y === 245, JSON.stringify(gesendet[0]));
 
-        // The window reports in, as the real page does on every heartbeat.
-        fenster.noteAlive('ctx-1', 'climate.wz');
+        gesendet.length = 0;
+        fenster.open({ entityId: 'light.y', x: 12, y: 34 });
+        check('ein eigener Platz schlägt die Mitte', gesendet[0].x === 12 && gesendet[0].y === 34);
+        fenster.noteClosed();
+
+        // The window reports in, as the real page does on every heartbeat -
+        // including the size it really came out at: 31 px of title bar.
+        fenster.noteAlive('ctx-1', 'climate.wz', [420, 551]);
+        check('der gemessene Rahmen ersetzt die Schätzung', fenster.frame.x === 0 && fenster.frame.y === 31, JSON.stringify(fenster.frame));
+        check('die Mitte rutscht um den halben Rahmen hoch', fenster.centre().y === 245, JSON.stringify(fenster.centre()));
+        check('ein Host ohne Rahmen wird auch gelernt', (function () {
+          fenster.noteFrame([420, 520]);
+          const y = fenster.centre().y;
+          fenster.noteFrame([420, 551]);
+          return y === 260;
+        })());
+        check('waagerecht bleibt es, wo es war', fenster.centre().x === 750);
+        check('Unsinn vom Fenster ändert nichts', (function () { fenster.noteFrame(['x', null]); return fenster.frame.y === 31; })());
         check('zweites Halten schließt wieder', fenster.toggle({ entityId: 'climate.wz' }) === 'closed');
         check('die Seite bekommt den Schließbefehl', gesendet[gesendet.length - 1].was === 'control:close');
         check('danach ist nichts mehr offen', fenster.isAlive() === false && fenster.showing === '');
