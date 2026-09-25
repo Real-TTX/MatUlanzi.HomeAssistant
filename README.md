@@ -40,7 +40,7 @@ Version 0.1.0 — Schritt 1 von 5. Vorhanden:
 | HA-WebSocket-Client (Auth, Reconnect mit Backoff, Ping/Pong, Live-Push) | ✅ |
 | Registry-Join + Suche | ✅ |
 | Canvas-Renderer für Tasten (Zustand, Farbe, Balken, „nicht verfügbar") | ✅ |
-| Action „Toggle" mit Live-Zustand und Long-Press-Identify | ✅ |
+| Action „Toggle" mit Live-Zustand; Halten öffnet die Steuerung | ✅ |
 | Raumbewusster Entity-Picker | ✅ |
 | Stil-Engine: Farben, Icons, Text-Templates, HTML-Modus | ✅ |
 | Button-Bibliothek + mehrere HA-Verbindungen | ✅ |
@@ -49,13 +49,19 @@ Version 0.1.0 — Schritt 1 von 5. Vorhanden:
 | Typen: Button (schaltet) und Info (nur Anzeige, mit Intervall) | ✅ |
 | 123 mitgelieferte MDI-Icons mit Suche, plus eigene Dateien | ✅ |
 | Designer-Fenster (openView) mit Live-Vorschau | ✅ |
-| Selbsttest (92 Assertions) | ✅ |
-| In Ulanzi Studio geladen (D200) | ⚠️ teilweise — Designer öffnete nach dem Schließen nicht erneut, gefixt |
+| Anzeige-Regeln (Bedingung → Icon, Farbe, Text) | ✅ |
+| Aktionsliste: Druck, Doppelklick, Halten — je mit eigener Aktion | ✅ |
+| Aktionskatalog aus Home Assistant selbst (`get_services`) | ✅ |
+| Steuerfenster pro Gerät (Licht, Klima, Rollo, Medien) | ✅ |
+| Nur Aktionen und Regler, die das Gerät wirklich kann | ✅ |
+| Tastengruppen: Nachbartasten folgen einer Leittaste | ✅ |
+| Selbsttest (416 Assertions) | ✅ |
+| In Ulanzi Studio geladen (D200) | ✅ |
 
-Geplant: Control-Fenster beim Tastendruck (Dimmer, RGBW, Thermostat) — auf dem
-Gerät selbst gibt es kein Untermenü, weil das SDK keine programmatische
-Seiten-Navigation kennt. Danach: Service-Call-Action, Szenen-Vorlagen,
-Encoder-Actions (nur für Geräte mit Drehknopf, z.B. D200X).
+Geplant: Puls-Animation über `setGifDataIcon`, während ein Gerät schaltet, und
+ein einfacherer Weg, Tastengruppen im Designer einzurichten. Encoder-Actions
+bleiben offen — sie betreffen nur Geräte mit Drehknopf (z.B. D200X), und das
+D200 hier hat keinen.
 
 ## Bibliothek & Designer
 
@@ -130,18 +136,24 @@ Helligkeit erneut   →  die anderen bleiben, nur der eine Wert ändert sich
 Sind Farbe und Farbtemperatur gleichzeitig gesetzt, wird gewarnt — Home Assistant
 nimmt in dem Fall nur eines davon und sagt nicht, welches.
 
-### Ein Druck wird beim Loslassen entschieden
+### Ein langer Druck wartet nicht aufs Loslassen
 
-Der Host schickt zu einem Tastendruck mehrere Ereignisse, und sie sind nicht
-austauschbar. Wie lang ein Druck war, weiß man erst beim **Loslassen** — also
-entscheidet `keyup`, was passiert. `run` bleibt als Rückfall für den Simulator
-und für Multi-Aktionen, wo gar kein Tastenereignis kommt, wird aber ignoriert,
-wenn das Loslassen den Druck schon behandelt hat.
+Zuerst entschied das Loslassen, was ein Druck war — schließlich weiß man erst
+dann, wie lang er gedauert hat. Nur fühlt sich das tot an: Man hält die Taste,
+nichts passiert, und wenn doch etwas passiert, hat man längst zu lange gehalten.
 
-Genau daran lag es, dass ein langer Druck **zusätzlich** die Kurz-Aktion
-auslöste. `haDebug.presses()` führt die letzten dreißig Ereignisse mit Quelle
-und Dauer mit, damit ein falsch gelesener Druck nachgesehen und nicht geraten
-werden kann.
+Die Geste wird deshalb entschieden, **während die Taste unten ist**: Sobald die
+Schwelle überschritten ist, läuft die Lang-Aktion. Gemessen am Gerät:
+`hold@612ms` bei 600 ms Schwelle.
+
+Der Host schickt zu einem Druck aber **zwei** Ereignisse, `keyup` und `run`.
+Vergisst man den Druck beim `keyup`, liest `run` einen frischen Kurzdruck an —
+ein Halten hätte also das Steuerfenster geöffnet und im Rausgehen noch das Licht
+geschaltet, und ein Kurzdruck wurde doppelt zugestellt. Der Druck-Datensatz
+überlebt die Freigabe deshalb um einen Moment und schluckt das Nachzügler-Ereignis.
+
+`haDebug.presses()` führt die letzten dreißig Ereignisse mit Quelle und Dauer
+mit, damit ein falsch gelesener Druck nachgesehen und nicht geraten werden kann.
 
 ### Einstellungen und Klick-Simulation
 
@@ -514,11 +526,49 @@ Das ist übrigens die ehrliche Antwort auf „Untermenü": Nachbartasten, die
 fremde Tasten kommt man nicht heran — und Seiten umschalten kann ein Plugin
 nicht.
 
+### Nur was das Gerät kann
+
+Ein SONOFF-Relais, das als Licht in Home Assistant auftaucht, ist immer noch ein
+Licht: gleiche Domain, gleiche Dienste. Ungefragt bekam es deshalb einen
+Helligkeitsregler, den es stillschweigend ignoriert, und ein Rollo ein An/Aus,
+das für niemanden einen Sinn ergibt, der eins besitzt.
+
+Home Assistant sagt beides deutlich — `supported_features` als Bitmaske,
+`supported_color_modes` als Liste —, es fragt nur niemand. `ha-capabilities.js`
+beantwortet die Frage an einer Stelle, und sowohl das Steuerfenster als auch der
+Aktionskatalog im Designer fragen dort zuerst.
+
+An der echten Installation gemessen:
+
+| | vorher | jetzt |
+| --- | --- | --- |
+| Relais als Licht, Fenster | An/Aus **+ Helligkeitsregler** | nur An/Aus |
+| Relais als Licht, `light.turn_on` | 6 Felder inkl. Farbe, Farbtemperatur | kein einziges |
+| Farblampe, `light.turn_on` | 6 Felder | alle 6, unverändert |
+| Rollo, Fenster | **An/Aus** + Position + ▲■▼ | Position + ▲■▼ |
+| Rollo, Dienste | inkl. Lamellendienste | ohne — es hat keine Lamellen |
+
+Zwei Feinheiten, die Arbeit gemacht haben. Erstens schreibt Home Assistant die
+geforderten Bits je nach Alter der Installation als nackte Zahl (`[32]`) **oder**
+als Enum-Pfad (`"light.LightEntityFeature.TRANSITION"`); beides wird gelesen.
+Zweitens: Meldet eine Entität gar nichts, bekommt sie weiterhin alles. Nicht zu
+wissen ist nicht dasselbe wie zu wissen, dass es nicht geht — eine Integration,
+die das Feld nie ausgefüllt hat, darf nicht dazu führen, dass ein funktionierender
+Regler verschwindet.
+
+Und weil der Zustand einer Entität beim Öffnen des Designers noch nicht da ist,
+wird die Aktionsliste ein zweites Mal gezeichnet, sobald Home Assistant geantwortet
+hat — aber nur dann, wenn sie beim ersten Mal blind gezeichnet wurde. Eine Liste,
+die sich unter den Händen neu aufbaut, während man darin tippt, wäre schlimmer als
+ein veraltetes Feld.
+
 ### Steuerfenster: die Regler am Rechner
 
-Ein Button vom Typ „Steuerfenster" öffnet beim Druck ein kleines Fenster mit
-genau den Reglern, die das Gerät hat. Die Werte stammen aus der Entität selbst,
-nicht aus Annahmen:
+**Halten öffnet es** — das ist die Vorgabe für jeden Button mit einer Entität,
+und ein zweites Halten schließt es wieder. Eine Taste kann nur schalten; alles
+darüber hinaus ist deshalb ein Halten entfernt statt im Designer vergraben.
+Darin stehen genau die Regler, die das Gerät hat. Die Werte stammen aus der
+Entität selbst, nicht aus Annahmen:
 
 ```
 Thermostat   An/Aus · Solltemperatur 23° (jetzt 22°)
@@ -531,9 +581,24 @@ Rollo        ein Fenster zum Ziehen · ▲ Stopp ▼ · ggf. Neigung
 Media        ⏮ ⏯ ⏭ · Lautstärke
 ```
 
-Das Fenster ist 420×520 groß und lässt sich pro Button positionieren; `openView`
-beachtet beides genau. Ein zweiter Tastendruck auf ein anderes Gerät **lenkt das
-offene Fenster um**, statt ein zweites zu öffnen.
+Wobei „die Regler, die das Gerät hat" wörtlich gemeint ist — siehe
+[Nur was das Gerät kann](#nur-was-das-gerät-kann). Ein Relais, das als Licht
+läuft, bekommt hier nur An/Aus, und ein Rollo gar kein An/Aus.
+
+Das Fenster ist 420×520 groß und öffnet **in der Bildschirmmitte**. Das ist
+weniger selbstverständlich, als es klingt: Der SDK verwirft eine Null-Koordinate
+(`if (x)`), „zentriert" heißt dann also, was der Host gerade dafür hält. Und der
+Host zeichnet einen Rahmen um die angeforderte Größe — 520 angefordert, 551
+herausgekommen —, wodurch das Fenster um die halbe Titelleiste zu tief saß. Eine
+Seite, die sich selbst per `moveTo` verschiebt, wird stillschweigend
+zurückgeschoben; die Rechnung muss also stimmen, **bevor** das Fenster aufgeht.
+Das Fenster meldet im Lebenszeichen mit, wie groß es wirklich geworden ist, und
+das nächste wird mit Rahmen gezielt. Gemessen: Fenstermitte 1280,697 gegen
+Schirmmitte 1280,696.
+
+Ein Button darf weiterhin seinen eigenen Platz nennen; dann gilt der. Ein Halten
+auf einem **anderen** Gerät **lenkt das offene Fenster um**, statt es zu
+schließen oder ein zweites zu öffnen.
 
 Es hängt an einer eigenen uuid (`…matUlanziHa.control`), getrennt von der des
 Designers — sonst reißt das Schließen des einen Fensters die Host-Buchhaltung
@@ -709,6 +774,10 @@ com.ulanzi.matUlanziHa.ulanziPlugin/
 │       ├── ha-client.js       WebSocket-API: Auth, Commands, Events, Reconnect
 │       ├── ha-registry.js     Areas+Devices+Floors+Entities → Suchindex
 │       ├── ha-domains.js      Was heißt „an" pro Domain, welcher Service, welche Anzeige
+│       ├── ha-capabilities.js Was ein Gerät wirklich kann (supported_features)
+│       ├── ha-services.js     Aktionskatalog aus get_services, auf die Entität gefiltert
+│       ├── display-rules.js   Bedingung → Icon, Farbe, Text
+│       ├── control-window.js  Öffnet das Steuerfenster, mittig und mit Rahmenmaß
 │       ├── key-renderer.js    196x196-Canvas → PNG für setBaseDataIcon
 │       ├── key-style.js       Stil-Modell, Text-Templates, HTML-Modus
 │       ├── i18n.js            Strings für die Tastenbeschriftung
@@ -722,6 +791,9 @@ com.ulanzi.matUlanziHa.ulanziPlugin/
 └── property-inspector/
     ├── common/entity-picker.js   der raumbewusste Picker
     ├── common/pi.css
+    ├── common/color-controls.js  Farbwähler, Helligkeit, Farbtemperatur
+    ├── common/cover-control.js   das Rollo zum Ziehen
+    ├── control/                  das Steuerfenster
     ├── designer/                 das Designer-Fenster
     └── toggle/inspector.html|js  Tasteneinstellung (Dropdown + Vorschau)
 ```
