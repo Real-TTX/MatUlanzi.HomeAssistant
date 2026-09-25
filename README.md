@@ -146,11 +146,37 @@ Die Geste wird deshalb entschieden, **während die Taste unten ist**: Sobald die
 Schwelle überschritten ist, läuft die Lang-Aktion. Gemessen am Gerät:
 `hold@612ms` bei 600 ms Schwelle.
 
-Der Host schickt zu einem Druck aber **zwei** Ereignisse, `keyup` und `run`.
-Vergisst man den Druck beim `keyup`, liest `run` einen frischen Kurzdruck an —
-ein Halten hätte also das Steuerfenster geöffnet und im Rausgehen noch das Licht
-geschaltet, und ein Kurzdruck wurde doppelt zugestellt. Der Druck-Datensatz
-überlebt die Freigabe deshalb um einen Moment und schluckt das Nachzügler-Ereignis.
+Der Host schickt zu einem Druck aber **drei** Ereignisse, und ihre Reihenfolge ist
+nicht die, die man erwartet. Am D200 gemessen:
+
+```
+keydown  147350 ms
+run      147351 ms   ← 1 ms später, nicht beim Loslassen
+keyup    147412 ms
+```
+
+**`run` kommt beim Drücken, nicht beim Loslassen.** Ein Rückfall auf `run` kann
+also gar nicht wissen, wie lang gedrückt wurde — der Name führt in die Irre.
+Solange ein echter Tastendruck unterwegs ist, wird `run` deshalb ignoriert; es
+bleibt nur für den Simulator und für Multi-Aktionen, wo kein Tastenereignis kommt.
+
+Und vergisst man den Druck beim `keyup`, liest ein nachlaufendes Ereignis einen
+frischen Kurzdruck an — ein Halten hätte das Steuerfenster geöffnet und im
+Rausgehen noch das Licht geschaltet. Der Druck-Datensatz überlebt die Freigabe
+deshalb um einen Moment und schluckt den Nachzügler.
+
+Sechs Drücke am Gerät, wie das Plugin sie gelesen hat:
+
+```
+keyup  61 ms     kurz
+hold  608 ms     lang - gefeuert, während die Taste noch unten war (1088 ms gehalten)
+keyup  91 ms     kurz
+keyup  82 ms     kurz
+keyup 126 ms     kurz
+keyup 152 ms     kurz
+```
+
+Genau eine Zustellung pro Druck, keine doppelte.
 
 `haDebug.presses()` führt die letzten dreißig Ereignisse mit Quelle und Dauer
 mit, damit ein falsch gelesener Druck nachgesehen und nicht geraten werden kann.
