@@ -206,6 +206,24 @@
         check('eine Szene kennt nur eine Richtung', SwitchPlan.plainService('scene.abend', false).service === 'turn_on');
         check('ohne Entität bleibt homeassistant', SwitchPlan.plainService('', true).domain === 'homeassistant');
 
+        // Ein Rollo auf 30 % meldet immer noch "open". Ohne diese Prüfung
+        // schickt die Taste ewig 30 und fährt nie wieder hoch.
+        const offen100 = { state: 'open', attributes: { current_position: 100 } };
+        const auf30 = { state: 'open', attributes: { current_position: 30 } };
+        const auf31 = { state: 'open', attributes: { current_position: 31 } };
+        const auf60 = { state: 'open', attributes: { current_position: 60 } };
+        check('ganz offen gilt als an', SwitchPlan.toggleIsOn(offen100, rollo30, true) === true);
+        check('auf dem Zielwert gilt als aus', SwitchPlan.toggleIsOn(auf30, rollo30, true) === false);
+        check('ein Prozent daneben zählt noch als dort', SwitchPlan.toggleIsOn(auf31, rollo30, true) === false);
+        check('deutlich darüber gilt wieder als an', SwitchPlan.toggleIsOn(auf60, rollo30, true) === true);
+        check('ohne Zielwert bleibt es beim gewöhnlichen Urteil', SwitchPlan.toggleIsOn(auf30, nurAus, true) === true);
+        check('und bei aus bleibt aus', SwitchPlan.toggleIsOn(auf30, nurAus, false) === false);
+
+        const dimmAus = { offDomain: 'light', offService: 'turn_on', offData: '{"brightness_pct": 15}' };
+        check('eine Lampe auf 15 % gilt als aus', SwitchPlan.toggleIsOn({ state: 'on', attributes: { brightness: 38 } }, dimmAus, true) === false, String(Math.round(38 / 255 * 100)));
+        check('dieselbe Lampe hell gilt als an', SwitchPlan.toggleIsOn({ state: 'on', attributes: { brightness: 200 } }, dimmAus, true) === true);
+        check('meldet die Lampe keine Helligkeit, zählt der Zustand', SwitchPlan.toggleIsOn({ state: 'on', attributes: {} }, dimmAus, true) === true);
+
         section('Steuerfenster: auf und wieder zu');
         const gesendet = [];
         const fensterUd = {

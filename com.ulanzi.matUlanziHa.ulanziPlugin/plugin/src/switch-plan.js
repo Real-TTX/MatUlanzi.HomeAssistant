@@ -138,10 +138,52 @@
     };
   }
 
+  /** Percent values a direction can aim at, and where the entity reports them. */
+  const AIMED = {
+    position: function (attrs) { return attrs.current_position; },
+    tilt_position: function (attrs) { return attrs.current_tilt_position; },
+    brightness_pct: function (attrs) {
+      return typeof attrs.brightness === 'number' ? Math.round((attrs.brightness / 255) * 100) : undefined;
+    }
+  };
+
+  /** Slats and dimmers never land exactly; a couple of percent is the same place. */
+  const TOLERANCE = 2;
+
+  /**
+   * Whether the button should treat this entity as "on" right now.
+   *
+   * A direction that does not actually switch the thing off cannot be told
+   * apart by the usual on/off test. A shutter parked at 30 percent still
+   * reports "open", so a key whose AUS means 30 percent would send 30 forever
+   * and never open again - the second press does nothing and the button is
+   * stuck one way round.
+   *
+   * When the off direction aims at a value the entity also reports, that value
+   * decides instead: at or below it, the button has done its "off" already.
+   *
+   * @param {boolean} sonst what the ordinary state test said
+   */
+  function toggleIsOn(state, action, sonst) {
+    const plan = directionPlan(action, false);
+    if (!plan || plan.error || !plan.data) return sonst;
+
+    const attrs = (state && state.attributes) || {};
+    for (const key of Object.keys(AIMED)) {
+      const ziel = Number(plan.data[key]);
+      if (!isFinite(ziel)) continue;
+      const ist = Number(AIMED[key](attrs));
+      if (!isFinite(ist)) continue;
+      return ist > ziel + TOLERANCE;
+    }
+    return sonst;
+  }
+
   global.SwitchPlan = {
     switchPlan: switchPlan,
     directionPlan: directionPlan,
     plainService: plainService,
+    toggleIsOn: toggleIsOn,
     parseData: parseData,
     dataFor: dataFor,
     hasExtras: hasExtras

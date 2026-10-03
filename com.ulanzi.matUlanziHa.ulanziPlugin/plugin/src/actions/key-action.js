@@ -581,10 +581,19 @@
       const ziele = global.entitiesForAction(def, action, kontext ? kontext.entityId : '');
       if (!ziele.length) return;
 
-      const an =
+      const gewoehnlich =
         ziele.length > 1
           ? this.aggregate({ entityIds: ziele, connection: def.connection }, entry).active
           : global.HaDomains.isActive(ziele[0], entry.client.getState(ziele[0]));
+
+      // A group meant to move together is judged by its first member here: when
+      // the ordinary test cannot tell the directions apart, one shutter's
+      // position is a better answer than a majority that never changes.
+      const an = global.SwitchPlan.toggleIsOn(
+        entry.client.getState(ziele[0]),
+        action,
+        gewoehnlich
+      );
       const wantOn = !an;
 
       const plan = global.SwitchPlan.directionPlan(action, wantOn);
