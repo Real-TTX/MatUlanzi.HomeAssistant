@@ -183,8 +183,8 @@
     // Two calls under one row: which one runs is decided by the state when the
     // key is pressed, exactly as a plain toggle decides it.
     if (action.kind === 'toggle') {
-      row.appendChild(this._direction(action, ON_KEYS, t('When switching on')));
-      row.appendChild(this._direction(action, OFF_KEYS, t('When switching off')));
+      row.appendChild(this._direction(action, ON_KEYS, t('When switching on'), true));
+      row.appendChild(this._direction(action, OFF_KEYS, t('When switching off'), false));
       return row;
     }
 
@@ -218,7 +218,7 @@
    * Leaving a direction empty is allowed and means "switch it the ordinary
    * way" - so one can give AUS a half-closed shutter and let EIN stay simple.
    */
-  ActionList.prototype._direction = function (action, keys, titel) {
+  ActionList.prototype._direction = function (action, keys, titel, wantOn) {
     const t = this.deps.t;
     const block = element('div', 'ha-action-dir');
     block.appendChild(element('div', 'ha-action-dir-head', titel));
@@ -243,7 +243,15 @@
     });
     block.appendChild(json);
 
-    this._fillService(action, service, fields, json, keys, t('Switch the ordinary way'));
+    // Naming the ordinary call turns a blank line into an answer: one can see
+    // what the key will do without first having to pick something to find out.
+    const fuer = action.entity || this.deps.entitiesOf()[0] || '';
+    const gewohnt = fuer ? global.SwitchPlan.plainService(fuer, wantOn) : null;
+    const leerText = gewohnt
+      ? '— ' + t('as usual') + ': ' + gewohnt.domain + '.' + gewohnt.service + ' —'
+      : '— ' + t('Switch the ordinary way') + ' —';
+
+    this._fillService(action, service, fields, json, keys, leerText);
     return block;
   };
 
