@@ -419,29 +419,37 @@ deutlich von einem `null`.
 
 ### Was „EIN" bedeuten soll
 
-Ein `toggle` kann keine Parameter tragen — deshalb sagt ein Button nicht nur,
-*dass* geschaltet wird, sondern auf Wunsch auch *wie*. Sobald etwas eingetragen
-ist, schickt die Taste statt eines Umschaltens ein ausdrückliches
-`turn_on`/`turn_off` in der Domain der Entität:
+Ein `toggle` kann keine Parameter tragen. Eine Taste, die ein Rollo schließt,
+schließt es deshalb ganz — auch wenn man es gern bei 30 % hätte.
+
+Dafür gibt es in der Aktionsliste die Art **„Schalten — eigene Aktion für EIN
+und AUS"**. Darunter stehen zwei Blöcke, jeder mit eigenem Dienst und eigenen
+Feldern:
 
 ```
-Beim Schalten:  [ Alle Entitäten ▾ ]
-EIN   {"brightness_pct": 15}
-AUS   {"transition": 2}
-
-Beim Schalten:  [ SwitchBot Floor Lamp • ▾ ]        ← eigene Daten
-EIN   {"brightness_pct": 40, "rgbw_color": [255,160,60,0]}
+Kurzer Druck · Schalten — eigene Aktion für EIN und AUS · Alle Entitäten  ✕
+   Beim Einschalten    — wie gewohnt schalten —
+   Beim Ausschalten    cover.set_cover_position     Position  [====------] 30 %
 ```
 
-Die Einstellung pro Entität schlägt die für alle, ein `•` markiert die Entitäten
-mit eigenen Daten. So bekommt eine Gruppe aus drei Lampen eine gemeinsame
-Grundhelligkeit und trotzdem eine davon ihre eigene Farbe. Ungültiges JSON wird
-unter den Feldern benannt, samt Entität — ein Tippfehler darf nicht erst beim
-Drücken auffallen, wenn stillschweigend nichts passiert.
+Welche Richtung läuft, entscheidet der Zustand beim Drücken — genau wie bei
+einem gewöhnlichen Umschalten, und bei einer Gruppe entscheidet die Mehrheit,
+damit alle gleich enden.
 
-Nicht-Standard-Richtungen sind berücksichtigt: `cover` wird `open_cover` /
-`close_cover`, `lock` wird `lock` / `unlock`, und `scene`, `script`, `button`,
-`automation` behalten ihren einen sinnvollen Dienst.
+**Eine leere Richtung ist kein Fehler und kein Schweigen**, sondern heißt „wie
+gewohnt schalten". So bekommt AUS ein halb geschlossenes Rollo und EIN bleibt
+einfach. Und „wie gewohnt" heißt je nach Domain etwas anderes: `cover` öffnet
+und schließt, `lock` ver- und entriegelt, `scene`, `script`, `button` und
+`automation` haben nur eine sinnvolle Richtung. `cover.turn_on` gibt es nicht —
+wer danach ruft, bekommt eine Taste, die stillschweigend nichts tut.
+
+Die Dienstauswahl ist dieselbe wie überall: aus Home Assistant selbst, gefiltert
+auf das, was die Entität kann. Ein Rollo ohne Lamellen bietet keine
+Lamellendienste an.
+
+Daneben gibt es weiterhin die ältere Form pro Entität (`on_data`/`off_data` in
+der Bibliothek), bei der nur **Daten** mitgegeben werden und der Dienst aus der
+Domain folgt. Gespeicherte Buttons laufen damit unverändert weiter.
 
 ### Typ „Dienst-Aufruf"
 

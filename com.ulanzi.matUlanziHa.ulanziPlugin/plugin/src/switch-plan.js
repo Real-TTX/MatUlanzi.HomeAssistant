@@ -100,8 +100,48 @@
     });
   }
 
+  /**
+   * The call one direction of a switching action makes.
+   *
+   * A plain toggle cannot carry parameters, so a button that wants its shutter
+   * to stop at 30 percent on the way down has to name a service per direction.
+   * A direction left empty is not an error and not silence - it means "switch
+   * it the ordinary way", so one side can be special and the other plain.
+   *
+   * @returns {{domain,service,data}|{error,domain,service}|null}
+   */
+  function directionPlan(action, wantOn) {
+    if (!action) return null;
+    const domain = (wantOn ? action.onDomain : action.offDomain) || '';
+    const service = (wantOn ? action.onService : action.offService) || '';
+    if (!domain || !service) return null;
+
+    const parsed = parseData(wantOn ? action.onData : action.offData);
+    if (parsed.error) return { error: parsed.error, domain: domain, service: service };
+    return { domain: domain, service: service, data: parsed.data || {} };
+  }
+
+  /**
+   * The ordinary way to switch one entity in a given direction.
+   *
+   * Not every domain has turn_on: a cover opens and closes, a lock locks and
+   * unlocks. Asking for `cover.turn_on` gets a service that does not exist and
+   * a key that silently does nothing.
+   */
+  function plainService(entityId, wantOn) {
+    const domain = domainOf(entityId);
+    if (!domain) return { domain: 'homeassistant', service: wantOn ? 'turn_on' : 'turn_off' };
+    if (FIRE_AND_FORGET[domain]) return { domain: domain, service: FIRE_AND_FORGET[domain] };
+    return {
+      domain: domain,
+      service: wantOn ? ON_SERVICE[domain] || 'turn_on' : OFF_SERVICE[domain] || 'turn_off'
+    };
+  }
+
   global.SwitchPlan = {
     switchPlan: switchPlan,
+    directionPlan: directionPlan,
+    plainService: plainService,
     parseData: parseData,
     dataFor: dataFor,
     hasExtras: hasExtras

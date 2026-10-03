@@ -100,6 +100,11 @@
     }
   };
 
+  /** Where one direction of a switching action keeps its call. */
+  const ON_KEYS = { domain: 'onDomain', service: 'onService', data: 'onData' };
+  const OFF_KEYS = { domain: 'offDomain', service: 'offService', data: 'offData' };
+  const PLAIN_KEYS = { domain: 'domain', service: 'service', data: 'data' };
+
   ActionList.prototype._row = function (action) {
     const deps = this.deps;
     const t = deps.t;
@@ -132,10 +137,11 @@
 
     const kind = doc.createElement('select');
     kind.appendChild(option('service', t('Home Assistant service')));
+    kind.appendChild(option('toggle', t('Switch — own action for on and off')));
     kind.appendChild(option('window', t('Open control window')));
     kind.appendChild(option('identify', t('Identify (show what it is)')));
     kind.appendChild(option('none', t('Nothing')));
-    kind.value = ['window', 'identify', 'none'].indexOf(action.kind) !== -1 ? action.kind : 'service';
+    kind.value = ['toggle', 'window', 'identify', 'none'].indexOf(action.kind) !== -1 ? action.kind : 'service';
     kind.addEventListener('change', () => {
       action.kind = kind.value;
       if (action.kind !== 'service') {
@@ -144,6 +150,11 @@
         action.domain = '';
         action.service = '';
         action.data = '';
+      }
+      if (action.kind !== 'toggle') {
+        for (const key of ['onDomain', 'onService', 'onData', 'offDomain', 'offService', 'offData']) {
+          action[key] = '';
+        }
       }
       this.render();
       this._changed();
@@ -169,6 +180,14 @@
     head.classList.toggle('ha-action-head-window', action.kind !== 'service');
     row.appendChild(head);
 
+    // Two calls under one row: which one runs is decided by the state when the
+    // key is pressed, exactly as a plain toggle decides it.
+    if (action.kind === 'toggle') {
+      row.appendChild(this._direction(action, ON_KEYS, t('When switching on')));
+      row.appendChild(this._direction(action, OFF_KEYS, t('When switching off')));
+      return row;
+    }
+
     const fields = element('div', 'ha-action-fields');
     if (action.kind === 'service') row.appendChild(fields);
 
@@ -188,52 +207,95 @@
     // The entity decides which services are on offer; without one we fall back
     // to the button's first entity so the list is never empty.
     if (action.kind !== 'service') return row;
-
-    const fuer = action.entity || deps.entitiesOf()[0] || '';
-    deps.catalogue().then((katalog) => {
-      if (!katalog) return;
-      const angebote = global.HaServices.servicesFor(katalog, fuer, (deps.stateOf ? deps.stateOf(fuer) : null));
-      service.innerHTML = '';
-      service.appendChild(option('', '— ' + t('Pick an action') + ' —'));
-      for (const eintrag of angebote) {
-        const id = eintrag.domain + '.' + eintrag.service;
-        service.appendChild(option(id, id + (eintrag.label ? ' — ' + eintrag.label : '')));
-      }
-      service.value = action.domain ? action.domain + '.' + action.service : '';
-
-      service.addEventListener('change', () => {
-        const wahl = String(service.value || '');
-        const punkt = wahl.indexOf('.');
-        action.domain = punkt === -1 ? '' : wahl.slice(0, punkt);
-        action.service = punkt === -1 ? '' : wahl.slice(punkt + 1);
-        // Data from the previous service would be rejected by the new one.
-        action.data = '';
-        json.value = '';
-        this._changed();
-        this._fillFields(action, fields, json);
-      });
-
-      this._fillFields(action, fields, json);
-    });
+    this._fillService(action, service, fields, json, PLAIN_KEYS);
 
     return row;
   };
 
-  /** Draws the chosen service's own fields, and keeps the JSON in step. */
-  ActionList.prototype._fillFields = function (action, host, json) {
+  /**
+   * One direction of a switching action: a heading, a service and its fields.
+   *
+   * Leaving a direction empty is allowed and means "switch it the ordinary
+   * way" - so one can give AUS a half-closed shutter and let EIN stay simple.
+   */
+  ActionList.prototype._direction = function (action, keys, titel) {
+    const t = this.deps.t;
+    const block = element('div', 'ha-action-dir');
+    block.appendChild(element('div', 'ha-action-dir-head', titel));
+
+    const service = doc.createElement('select');
+    service.className = 'ha-action-dir-service';
+    service.appendChild(option('', '…'));
+    block.appendChild(service);
+
+    const fields = element('div', 'ha-action-fields');
+    block.appendChild(fields);
+
+    const json = doc.createElement('textarea');
+    json.className = 'ha-action-json';
+    json.spellcheck = false;
+    json.value = action[keys.data] || '';
+    json.placeholder = '{ }';
+    json.addEventListener('change', () => {
+      action[keys.data] = json.value;
+      this._changed();
+      this._fillFields(action, fields, json, keys);
+    });
+    block.appendChild(json);
+
+    this._fillService(action, service, fields, json, keys, t('Switch the ordinary way'));
+    return block;
+  };
+
+  /** Fills a service dropdown from the catalogue and keeps its fields in step. */
+  ActionList.prototype._fillService = function (action, service, fields, json, keys, leerText) {
     const deps = this.deps;
-    if (!action.domain || !action.service) {
+    const t = deps.t;
+    const fuer = action.entity || deps.entitiesOf()[0] || '';
+
+    deps.catalogue().then((katalog) => {
+      if (!katalog) return;
+      const angebote = global.HaServices.servicesFor(katalog, fuer, (deps.stateOf ? deps.stateOf(fuer) : null));
+      service.innerHTML = '';
+      service.appendChild(option('', leerText || '— ' + t('Pick an action') + ' —'));
+      for (const eintrag of angebote) {
+        const id = eintrag.domain + '.' + eintrag.service;
+        service.appendChild(option(id, id + (eintrag.label ? ' — ' + eintrag.label : '')));
+      }
+      service.value = action[keys.domain] ? action[keys.domain] + '.' + action[keys.service] : '';
+
+      service.addEventListener('change', () => {
+        const wahl = String(service.value || '');
+        const punkt = wahl.indexOf('.');
+        action[keys.domain] = punkt === -1 ? '' : wahl.slice(0, punkt);
+        action[keys.service] = punkt === -1 ? '' : wahl.slice(punkt + 1);
+        // Data from the previous service would be rejected by the new one.
+        action[keys.data] = '';
+        json.value = '';
+        this._changed();
+        this._fillFields(action, fields, json, keys);
+      });
+
+      this._fillFields(action, fields, json, keys);
+    });
+  };
+
+  /** Draws the chosen service's own fields, and keeps the JSON in step. */
+  ActionList.prototype._fillFields = function (action, host, json, keys) {
+    const deps = this.deps;
+    const k = keys || PLAIN_KEYS;
+    if (!action[k.domain] || !action[k.service]) {
       host.innerHTML = '';
       return;
     }
     deps.catalogue().then((katalog) => {
       if (!katalog) return;
       const fuer = action.entity || deps.entitiesOf()[0] || '';
-      const dienst = global.HaServices.find(katalog, action.domain, action.service, (deps.stateOf ? deps.stateOf(fuer) : null));
-      const parsed = global.SwitchPlan.parseData(action.data);
+      const dienst = global.HaServices.find(katalog, action[k.domain], action[k.service], (deps.stateOf ? deps.stateOf(fuer) : null));
+      const parsed = global.SwitchPlan.parseData(action[k.data]);
       deps.renderFields(host, dienst, parsed.error ? {} : parsed.data, () => {
-        action.data = deps.merge(action.data, dienst, deps.collect(host));
-        json.value = action.data;
+        action[k.data] = deps.merge(action[k.data], dienst, deps.collect(host));
+        json.value = action[k.data];
         this._changed();
       });
     });

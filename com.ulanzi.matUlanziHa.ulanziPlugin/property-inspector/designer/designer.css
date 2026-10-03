@@ -821,3 +821,20 @@ button.link {
 .ha-rule-colour input[type='color']:disabled {
   opacity: 0.35;
 }
+
+/* Both directions of a switching action, each with its own call. */
+.ha-action-dir {
+  margin: 6px 0 0 18px;
+  padding: 6px 8px;
+  border-left: 2px solid #3a3d44;
+}
+
+.ha-action-dir-head {
+  font-size: 11px;
+  color: #9aa0a8;
+  margin-bottom: 4px;
+}
+
+.ha-action-dir-service {
+  width: 100%;
+}

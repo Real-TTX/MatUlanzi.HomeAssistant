@@ -535,6 +535,14 @@
             this.openControl(def, action.entity);
             continue;
           }
+          // Switching with a say in both directions. A plain toggle cannot
+          // carry parameters, so a shutter that should stop at 30 percent on
+          // the way down needs its own call per direction.
+          if (action.kind === 'toggle') {
+            await this.runToggleAction(def, action, entry, kontext);
+            continue;
+          }
+
           if (!action.domain || !action.service) continue;
 
           const parsed = global.SwitchPlan.parseData(action.data);
@@ -560,6 +568,45 @@
       }, def);
 
       return true;
+    }
+
+    /**
+     * One action that switches, with a separate call for each direction.
+     *
+     * Which direction it is comes from the same place as a plain toggle: the
+     * state of the entity, or of the group as a whole, so a button with three
+     * lamps still ends up uniform instead of flipping each one against the next.
+     */
+    async runToggleAction(def, action, entry, kontext) {
+      const ziele = global.entitiesForAction(def, action, kontext ? kontext.entityId : '');
+      if (!ziele.length) return;
+
+      const an =
+        ziele.length > 1
+          ? this.aggregate({ entityIds: ziele, connection: def.connection }, entry).active
+          : global.HaDomains.isActive(ziele[0], entry.client.getState(ziele[0]));
+      const wantOn = !an;
+
+      const plan = global.SwitchPlan.directionPlan(action, wantOn);
+
+      // A direction left empty means "do the ordinary thing", not "do nothing" -
+      // that way one can give AUS its own call and leave EIN alone.
+      if (!plan) {
+        // homeassistant.* spans domains, so a group of mixed devices goes
+        // through it; a single entity gets the service its own domain uses.
+        const ruf =
+          ziele.length > 1
+            ? { domain: 'homeassistant', service: wantOn ? 'turn_on' : 'turn_off' }
+            : global.SwitchPlan.plainService(ziele[0], wantOn);
+        await entry.client.callService(ruf.domain, ruf.service, {}, { entity_id: ziele });
+        return;
+      }
+
+      if (plan.error) {
+        this.$UD.toast(plan.domain + '.' + plan.service + ': ' + this.i18n.t('Data is not valid JSON'));
+        return;
+      }
+      await entry.client.callService(plan.domain, plan.service, plan.data, { entity_id: ziele });
     }
 
     /**

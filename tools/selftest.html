@@ -172,6 +172,40 @@
         check('Fallback ist homeassistant.toggle', D.pressService('input_boolean.x', null).domain === 'homeassistant');
         check('Helligkeitsbalken 0..1', Math.abs(D.progressOf('light.decke_wz', fakeClient.getState('light.decke_wz')) - 180 / 255) < 0.001);
 
+        section('Schalten mit eigenem EIN und AUS');
+        const rollo30 = {
+          kind: 'toggle',
+          onDomain: 'cover', onService: 'open_cover', onData: '',
+          offDomain: 'cover', offService: 'set_cover_position', offData: '{"position": 30}'
+        };
+        const auf = SwitchPlan.directionPlan(rollo30, true);
+        const zu = SwitchPlan.directionPlan(rollo30, false);
+        check('EIN nimmt den eigenen Dienst', auf.domain === 'cover' && auf.service === 'open_cover');
+        check('EIN ohne Daten schickt ein leeres Objekt', JSON.stringify(auf.data) === '{}');
+        check('AUS fährt nur bis 30 Prozent', zu.service === 'set_cover_position' && zu.data.position === 30, JSON.stringify(zu));
+
+        const nurAus = { kind: 'toggle', offDomain: 'cover', offService: 'close_cover', offData: '' };
+        check('eine leere Richtung heißt: wie gewohnt', SwitchPlan.directionPlan(nurAus, true) === null);
+        check('die andere Richtung gilt trotzdem', SwitchPlan.directionPlan(nurAus, false).service === 'close_cover');
+        check('ein Dienst ohne Domain zählt nicht', SwitchPlan.directionPlan({ onService: 'turn_on' }, true) === null);
+        check('gar keine Aktion ergibt nichts', SwitchPlan.directionPlan(null, true) === null);
+
+        const kaputt = { onDomain: 'light', onService: 'turn_on', onData: '{nicht json' };
+        const schlecht = SwitchPlan.directionPlan(kaputt, true);
+        check('kaputtes JSON wird benannt, nicht verschluckt', Boolean(schlecht.error) && schlecht.service === 'turn_on');
+
+        // Per-Richtung-Dienste und die alten EIN/AUS-Daten sind zwei Wege zum
+        // selben Ziel; der alte bleibt, damit gespeicherte Buttons weiterlaufen.
+        check('der alte Weg funktioniert weiter', SwitchPlan.switchPlan('cover.wz', false, '{"x":1}').service === 'close_cover');
+
+        // Die leere Richtung schaltet "wie gewohnt" - und das heißt pro Domain
+        // etwas anderes. cover.turn_on gibt es nicht.
+        check('ein Rollo öffnet und schließt', SwitchPlan.plainService('cover.wz', true).service === 'open_cover' && SwitchPlan.plainService('cover.wz', false).service === 'close_cover');
+        check('ein Schloss ver- und entriegelt', SwitchPlan.plainService('lock.tuer', true).service === 'lock' && SwitchPlan.plainService('lock.tuer', false).service === 'unlock');
+        check('ein Licht bleibt bei turn_on', SwitchPlan.plainService('light.x', true).domain === 'light' && SwitchPlan.plainService('light.x', true).service === 'turn_on');
+        check('eine Szene kennt nur eine Richtung', SwitchPlan.plainService('scene.abend', false).service === 'turn_on');
+        check('ohne Entität bleibt homeassistant', SwitchPlan.plainService('', true).domain === 'homeassistant');
+
         section('Steuerfenster: auf und wieder zu');
         const gesendet = [];
         const fensterUd = {
